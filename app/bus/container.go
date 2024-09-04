@@ -33,6 +33,8 @@ func (c *container) GetBusCoordinates() []dto.BusCoordinate {
 
 func (c *container) RunCron() {
 	for {
+		time.Sleep(time.Millisecond * 5500)
+
 		busStatuses, err := c.damriService.GetAllBusStatus()
 		if err != nil {
 			fmt.Printf("damriService.GetAllBusStatus(): %s\n", err.Error())
@@ -84,7 +86,5 @@ func (c *container) RunCron() {
 		}
 
 		c.busCoordinates = coordinates
-
-		time.Sleep(time.Millisecond * 5500)
 	}
 }
