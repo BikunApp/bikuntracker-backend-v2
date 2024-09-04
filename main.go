@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/FreeJ1nG/bikuntracker-backend/app/bus"
 	"github.com/FreeJ1nG/bikuntracker-backend/app/damri"
 	"github.com/FreeJ1nG/bikuntracker-backend/utils"
 	"github.com/coder/websocket"
@@ -19,7 +20,10 @@ func main() {
 		return
 	}
 
-	damriService := damri.NewService(&config)
+	damriService := damri.NewService(config)
+	busContainer := bus.NewContainer(config, damriService)
+
+	go busContainer.RunCron()
 
 	http.HandleFunc("/v2", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var reason string
@@ -33,39 +37,7 @@ func main() {
 		defer c.CloseNow()
 
 		for {
-			busStatuses, err := damriService.GetAllBusStatus()
-			if err != nil {
-				reason = fmt.Sprintf("damriService.GetAllBusStatus(): %s", err.Error())
-				fmt.Println(reason)
-				c.Close(websocket.StatusNormalClosure, reason)
-				return
-			}
-
-			imeiList := make([]string, 0)
-			for _, busStatus := range busStatuses {
-				imeiList = append(imeiList, busStatus.Imei)
-			}
-
-			coordinates, err := damriService.GetBusCoordinates(imeiList)
-			if err != nil {
-				// If this fails, we try to authenticate before redoing the request
-				newToken, err := damriService.Authenticate()
-				if err != nil {
-					reason = fmt.Sprintf("damriService.Authenticate(): %s", err.Error())
-					fmt.Println(reason)
-					c.Close(websocket.StatusAbnormalClosure, reason)
-					return
-				}
-				config.Token = newToken
-				coordinates, err = damriService.GetBusCoordinates(imeiList)
-				if err != nil {
-					reason = fmt.Sprintf("damriService.GetBusCoordinates(): %s", err.Error())
-					fmt.Println(reason)
-					c.Close(websocket.StatusAbnormalClosure, reason)
-					return
-				}
-			}
-
+			coordinates := busContainer.GetBusCoordinates()
 			message, err := json.Marshal(coordinates)
 			if err != nil {
 				reason = fmt.Sprintf("unable to marshal bus coordinates: %s", err.Error())
@@ -75,7 +47,7 @@ func main() {
 			}
 
 			c.Write(r.Context(), websocket.MessageText, message)
-			time.Sleep(time.Second * 4)
+			time.Sleep(time.Second * 3)
 		}
 	}))
 
