@@ -14,7 +14,8 @@ type Config struct {
 	BikunAdminApi    string `mapstructure:"BIKUN_ADMIN_API"`
 	BikunAdminApiKey string `mapstructure:"BIKUN_ADMIN_API_KEY"`
 
-	Port string `mapstructure:"PORT"`
+	Port         string `mapstructure:"PORT"`
+	PrintCsvLogs bool   `mapstructure:"PRINT_CSV_LOGS"`
 
 	Token string
 }

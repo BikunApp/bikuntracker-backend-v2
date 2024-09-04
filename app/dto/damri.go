@@ -22,6 +22,7 @@ type DamriAuthResponse struct {
 }
 
 type BusCoordinate struct {
+	Color        string    `json:"color"`
 	Imei         string    `json:"imei"`
 	VehicleName  string    `json:"vehicle_name"`
 	Longitude    float64   `json:"longitude"`
