@@ -28,7 +28,9 @@ func main() {
 	go busContainer.RunCron()
 
 	http.HandleFunc("/v2", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		c, err := websocket.Accept(w, r, nil)
+		c, err := websocket.Accept(w, r, &websocket.AcceptOptions{
+			OriginPatterns: []string{"localhost:5173"},
+		})
 
 		var reason string
 		if err != nil {
@@ -47,7 +49,7 @@ func main() {
 				reason = fmt.Sprintf("damriService.GetOperationalStatus(): %s", err.Error())
 				log.Println(reason)
 				c.Close(websocket.StatusAbnormalClosure, reason)
-				return
+				continue
 			}
 
 			message, err := json.Marshal(dto.CoordinateBroadcastMessage{Coordinates: coordinates, OperationalStatus: operationalStatus})
@@ -55,7 +57,7 @@ func main() {
 				reason = fmt.Sprintf("unable to marshal bus coordinates: %s", err.Error())
 				log.Println(reason)
 				c.Close(websocket.StatusAbnormalClosure, reason)
-				return
+				continue
 			}
 
 			c.Write(r.Context(), websocket.MessageText, message)
