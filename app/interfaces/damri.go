@@ -7,3 +7,7 @@ type DamriService interface {
 	GetAllBusStatus() (res []dto.BusStatus, err error)
 	GetBusCoordinates(imeiList []string) (res []dto.BusCoordinate, err error)
 }
+
+type DamriUtil interface {
+	GetHMInMinutes(hours int, minutes int) int
+}

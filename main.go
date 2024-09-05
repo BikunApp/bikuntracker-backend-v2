@@ -9,6 +9,7 @@ import (
 
 	"github.com/FreeJ1nG/bikuntracker-backend/app/bus"
 	"github.com/FreeJ1nG/bikuntracker-backend/app/damri"
+	"github.com/FreeJ1nG/bikuntracker-backend/app/dto"
 	"github.com/FreeJ1nG/bikuntracker-backend/utils"
 	"github.com/coder/websocket"
 )
@@ -20,7 +21,8 @@ func main() {
 		return
 	}
 
-	damriService := damri.NewService(config)
+	damriUtil := damri.NewUtil()
+	damriService := damri.NewService(config, damriUtil)
 	busContainer := bus.NewContainer(config, damriService)
 
 	go busContainer.RunCron()
@@ -39,7 +41,16 @@ func main() {
 
 		for {
 			coordinates := busContainer.GetBusCoordinates()
-			message, err := json.Marshal(coordinates)
+
+			operationalStatus, err := damriService.GetOperationalStatus()
+			if err != nil {
+				reason = fmt.Sprintf("damriService.GetOperationalStatus(): %s", err.Error())
+				log.Println(reason)
+				c.Close(websocket.StatusAbnormalClosure, reason)
+				return
+			}
+
+			message, err := json.Marshal(dto.CoordinateBroadcastMessage{Coordinates: coordinates, OperationalStatus: operationalStatus})
 			if err != nil {
 				reason = fmt.Sprintf("unable to marshal bus coordinates: %s", err.Error())
 				log.Println(reason)
