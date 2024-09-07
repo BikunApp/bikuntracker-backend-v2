@@ -67,6 +67,7 @@ func (c *container) RunCron() {
 					continue
 				}
 				coordinates[i].Color = busStatus.Color
+				coordinates[i].Id = busStatus.BusId
 			}
 		}
 
@@ -77,7 +78,7 @@ func (c *container) RunCron() {
 			if err != nil {
 				log.Printf("unable to upload logs: %s", err.Error())
 			} else {
-				resp, err := http.Post("http://localhost:4040/w", "application/json", bytes.NewBuffer(body))
+				resp, err := http.Post("http://localhost:4040", "application/json", bytes.NewBuffer(body))
 				if err != nil || resp.StatusCode < 200 && resp.StatusCode >= 300 {
 					log.Printf("something went wrong when trying to POST logs: %s", err.Error())
 				}
