@@ -1,6 +1,6 @@
 package dto
 
-import "time"
+import "github.com/FreeJ1nG/bikuntracker-backend/app/models"
 
 type DamriAuthRequestBody struct {
 	Username string `json:"username"`
@@ -21,41 +21,19 @@ type DamriAuthResponse struct {
 	Data      DamriAuthResponseData `json:"data"`
 }
 
-type BusCoordinate struct {
-	Id           int       `json:"id"`
-	Color        string    `json:"color"`
-	Imei         string    `json:"imei"`
-	VehicleName  string    `json:"vehicle_name"`
-	Longitude    float64   `json:"longitude"`
-	Latitude     float64   `json:"latitude"`
-	Status       string    `json:"status"`
-	Speed        int       `json:"speed"`
-	TotalMileage float64   `json:"total_mileage"`
-	GpsTime      time.Time `json:"gps_time"`
-}
-
 type DamriGetCoordinatesRequestBody struct {
 	Imei []string `json:"imei"`
 }
 
 type DamriGetCoordinatesResponse struct {
-	RequestId string          `json:"request_id"`
-	Code      int             `json:"code"`
-	Success   bool            `json:"success"`
-	Message   string          `json:"message"`
-	Data      []BusCoordinate `json:"data"`
-}
-
-type BusStatus struct {
-	BusId       int       `json:"bus_id"`
-	VehicleName string    `json:"vehicle_name"`
-	Imei        string    `json:"imei"`
-	IsActive    bool      `json:"is_active"`
-	Color       string    `json:"color"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	RequestId string                 `json:"request_id"`
+	Code      int                    `json:"code"`
+	Success   bool                   `json:"success"`
+	Message   string                 `json:"message"`
+	Data      []models.BusCoordinate `json:"data"`
 }
 
 type BikunAdminGetAllBusStatusResponse struct {
-	Success bool        `json:"success"`
-	Data    []BusStatus `json:"data"`
+	Success bool               `json:"success"`
+	Data    []models.BusStatus `json:"data"`
 }

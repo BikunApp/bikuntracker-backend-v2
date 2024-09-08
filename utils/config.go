@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"fmt"
 	"log"
 
 	"github.com/spf13/viper"
@@ -17,7 +18,36 @@ type Config struct {
 	Port         string `mapstructure:"PORT"`
 	PrintCsvLogs bool   `mapstructure:"PRINT_CSV_LOGS"`
 
+	DBName     string `mapstructure:"DB_NAME"`
+	DBHost     string `mapstructure:"DB_HOST"`
+	DBUser     string `mapstructure:"DB_USER"`
+	DBPassword string `mapstructure:"DB_PASSWORD"`
+	DBPort     string `mapstructure:"DB_PORT"`
+
+	JwtExpiryInDays        int    `mapstructure:"JWT_EXPIRY_IN_DAYS"`
+	JwtRefreshExpiryInDays int    `mapstructure:"JWT_REFRESH_EXPIRY_IN_DAYS"`
+	JwtSecretKey           string `mapstructure:"JWT_SECRET_KEY"`
+
 	Token string
+	DBUrl string
+	DBDsn string
+}
+
+func (c *Config) setDBString() {
+	c.DBUrl = fmt.Sprintf("postgresql://%s:%s@%s:%s/%s?sslmode=disable",
+		c.DBUser,
+		c.DBPassword,
+		c.DBHost,
+		c.DBPort,
+		c.DBName,
+	)
+	c.DBDsn = fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=disable",
+		c.DBHost,
+		c.DBUser,
+		c.DBPassword,
+		c.DBName,
+		c.DBPort,
+	)
 }
 
 func SetupConfig() (config *Config, err error) {
@@ -32,5 +62,6 @@ func SetupConfig() (config *Config, err error) {
 	}
 
 	err = viper.Unmarshal(&config)
+	config.setDBString()
 	return
 }

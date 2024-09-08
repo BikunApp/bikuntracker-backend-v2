@@ -1,6 +1,8 @@
 package dto
 
+import "github.com/FreeJ1nG/bikuntracker-backend/app/models"
+
 type CoordinateBroadcastMessage struct {
-	Coordinates       []BusCoordinate `json:"coordinates"`
-	OperationalStatus int             `json:"operationalStatus"`
+	Coordinates       []models.BusCoordinate `json:"coordinates"`
+	OperationalStatus int                    `json:"operationalStatus"`
 }
