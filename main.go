@@ -58,8 +58,6 @@ func main() {
 				return
 			}
 
-			fmt.Println(" >>", string(response))
-
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
 			_, err = w.Write(response)
