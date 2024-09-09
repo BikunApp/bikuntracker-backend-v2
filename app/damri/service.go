@@ -125,7 +125,7 @@ func (s *service) GetOperationalStatus() (int, error) {
 	if dayOfWeek >= 1 && dayOfWeek <= 5 {
 		if currentTime >= s.util.GetHMInMinutes(6, 50) && currentTime < s.util.GetHMInMinutes(9, 0) {
 			return MORNING_ROUTE, nil
-		} else if currentTime >= s.util.GetHMInMinutes(9, 0) && currentTime < s.util.GetHMInMinutes(21, 0) {
+		} else if currentTime >= s.util.GetHMInMinutes(9, 0) && currentTime < s.util.GetHMInMinutes(21, 30) {
 			return NORMAL_ROUTE, nil
 		} else {
 			return NOT_OPERATIONAL, nil
@@ -134,7 +134,7 @@ func (s *service) GetOperationalStatus() (int, error) {
 
 	// If day is Saturday
 	if dayOfWeek == 6 {
-		if currentTime >= s.util.GetHMInMinutes(6, 50) && currentTime < s.util.GetHMInMinutes(15, 30) {
+		if currentTime >= s.util.GetHMInMinutes(6, 50) && currentTime < s.util.GetHMInMinutes(16, 10) {
 			return NORMAL_ROUTE, nil
 		} else {
 			return NOT_OPERATIONAL, nil
