@@ -26,12 +26,13 @@ func main() {
 	go busContainer.RunCron()
 
 	http.HandleFunc("/v2", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var reason string
 		c, err := websocket.Accept(w, r, nil)
+
+		var reason string
 		if err != nil {
 			reason = fmt.Sprintf("unable to upgrade websocket connection: %s", err.Error())
-			fmt.Println(reason)
-			c.Close(websocket.StatusNormalClosure, reason)
+			log.Println(reason)
+			c.Close(websocket.StatusAbnormalClosure, reason)
 			return
 		}
 		defer c.CloseNow()
@@ -41,7 +42,7 @@ func main() {
 			message, err := json.Marshal(coordinates)
 			if err != nil {
 				reason = fmt.Sprintf("unable to marshal bus coordinates: %s", err.Error())
-				fmt.Println(reason)
+				log.Println(reason)
 				c.Close(websocket.StatusAbnormalClosure, reason)
 				return
 			}
@@ -51,5 +52,6 @@ func main() {
 		}
 	}))
 
+	fmt.Printf("Listening on port %s ...\n", config.Port)
 	log.Fatal(http.ListenAndServe(":"+config.Port, nil))
 }

@@ -3,7 +3,6 @@ package bus
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
 	"time"
@@ -37,7 +36,7 @@ func (c *container) RunCron() {
 
 		busStatuses, err := c.damriService.GetAllBusStatus()
 		if err != nil {
-			fmt.Printf("damriService.GetAllBusStatus(): %s\n", err.Error())
+			log.Printf("damriService.GetAllBusStatus(): %s\n", err.Error())
 			continue
 		}
 
@@ -51,13 +50,13 @@ func (c *container) RunCron() {
 			// If this fails, we try to authenticate before redoing the request
 			newToken, err := c.damriService.Authenticate()
 			if err != nil {
-				fmt.Printf("damriService.Authenticate(): %s\n", err.Error())
+				log.Printf("damriService.Authenticate(): %s\n", err.Error())
 				continue
 			}
 			c.config.Token = newToken
 			coordinates, err = c.damriService.GetBusCoordinates(imeiList)
 			if err != nil {
-				fmt.Printf("damriService.GetBusCoordinates(): %s\n", err.Error())
+				log.Printf("damriService.GetBusCoordinates(): %s\n", err.Error())
 				continue
 			}
 		}
@@ -78,7 +77,7 @@ func (c *container) RunCron() {
 			if err != nil {
 				log.Printf("unable to upload logs: %s", err.Error())
 			} else {
-				resp, err := http.Post("http://localhost:4040", "application/json", bytes.NewBuffer(body))
+				resp, err := http.Post("http://localhost:4040/w", "application/json", bytes.NewBuffer(body))
 				if err != nil || resp.StatusCode < 200 && resp.StatusCode >= 300 {
 					log.Printf("something went wrong when trying to POST logs: %s", err.Error())
 				}
