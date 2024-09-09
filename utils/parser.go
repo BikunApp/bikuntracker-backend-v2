@@ -7,12 +7,19 @@ import (
 	"net/http"
 )
 
-func ParseRequestBody[T interface{}](bodyInByte []byte) (body T, err error) {
-	err = json.Unmarshal(bodyInByte, &body)
+func ParseRequestBody[T interface{}](body io.ReadCloser) (res T, err error) {
+	bodyInByte, err := io.ReadAll(body)
 	if err != nil {
-		err = fmt.Errorf("Unable to parse request body: %s", err.Error())
+		err = fmt.Errorf("unable to read request body: %w", err)
 		return
 	}
+
+	err = json.Unmarshal(bodyInByte, &res)
+	if err != nil {
+		err = fmt.Errorf("Unable to parse request body: %w", err)
+		return
+	}
+
 	return
 }
 
@@ -24,13 +31,13 @@ func ParseResponseBody[T interface{}](response *http.Response) (body T, err erro
 
 	respBody, err := io.ReadAll(response.Body)
 	if err != nil {
-		err = fmt.Errorf("unable to read response body: %s", err.Error())
+		err = fmt.Errorf("unable to read response body: %w", err)
 		return
 	}
 
 	err = json.Unmarshal(respBody, &body)
 	if err != nil {
-		err = fmt.Errorf("unable to unmarshal response body: %s", err.Error())
+		err = fmt.Errorf("unable to unmarshal response body: %w", err)
 		return
 	}
 

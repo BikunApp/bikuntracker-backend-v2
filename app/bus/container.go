@@ -7,26 +7,26 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/FreeJ1nG/bikuntracker-backend/app/dto"
 	"github.com/FreeJ1nG/bikuntracker-backend/app/interfaces"
+	"github.com/FreeJ1nG/bikuntracker-backend/app/models"
 	"github.com/FreeJ1nG/bikuntracker-backend/utils"
 )
 
 type container struct {
 	config         *utils.Config
 	damriService   interfaces.DamriService
-	busCoordinates []dto.BusCoordinate
+	busCoordinates []models.BusCoordinate
 }
 
 func NewContainer(config *utils.Config, damriService interfaces.DamriService) *container {
 	return &container{
 		config:         config,
 		damriService:   damriService,
-		busCoordinates: []dto.BusCoordinate{},
+		busCoordinates: []models.BusCoordinate{},
 	}
 }
 
-func (c *container) GetBusCoordinates() []dto.BusCoordinate {
+func (c *container) GetBusCoordinates() []models.BusCoordinate {
 	return c.busCoordinates
 }
 

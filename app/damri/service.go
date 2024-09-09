@@ -9,6 +9,7 @@ import (
 
 	"github.com/FreeJ1nG/bikuntracker-backend/app/dto"
 	"github.com/FreeJ1nG/bikuntracker-backend/app/interfaces"
+	"github.com/FreeJ1nG/bikuntracker-backend/app/models"
 	"github.com/FreeJ1nG/bikuntracker-backend/utils"
 )
 
@@ -36,13 +37,13 @@ func (s *service) Authenticate() (token string, err error) {
 		Password: s.config.DamriLoginPassword,
 	})
 	if err != nil {
-		err = fmt.Errorf("unable to marshal damri auth credentials: %s", err.Error())
+		err = fmt.Errorf("unable to marshal damri auth credentials: %w", err)
 		return
 	}
 
 	resp, err := http.Post(s.config.DamriApi+"/auth", "application/json", bytes.NewBuffer(authData))
 	if err != nil {
-		err = fmt.Errorf("something went wrong when doing POST to Damri API: %s", err.Error())
+		err = fmt.Errorf("something went wrong when doing POST to Damri API: %w", err)
 		return
 	}
 
@@ -55,17 +56,17 @@ func (s *service) Authenticate() (token string, err error) {
 	return
 }
 
-func (s *service) GetAllBusStatus() (res []dto.BusStatus, err error) {
+func (s *service) GetAllBusStatus() (res []models.BusStatus, err error) {
 	request, err := http.NewRequest("GET", s.config.BikunAdminApi+"/bus/status", nil)
 	request.Header.Set("api_key", s.config.BikunAdminApiKey)
 	if err != nil {
-		err = fmt.Errorf("unable to create request: %s", err.Error())
+		err = fmt.Errorf("unable to create request: %w", err)
 		return
 	}
 
 	resp, err := http.DefaultClient.Do(request)
 	if err != nil {
-		err = fmt.Errorf("unable to execute HTTP request to fetch bus status: %s", err.Error())
+		err = fmt.Errorf("unable to execute HTTP request to fetch bus status: %w", err)
 		return
 	}
 
@@ -78,18 +79,18 @@ func (s *service) GetAllBusStatus() (res []dto.BusStatus, err error) {
 	return
 }
 
-func (s *service) GetBusCoordinates(imeiList []string) (res []dto.BusCoordinate, err error) {
+func (s *service) GetBusCoordinates(imeiList []string) (res []models.BusCoordinate, err error) {
 	body, err := json.Marshal(dto.DamriGetCoordinatesRequestBody{
 		Imei: imeiList,
 	})
 	if err != nil {
-		err = fmt.Errorf("unable to marshal imeiList: %s", err.Error())
+		err = fmt.Errorf("unable to marshal imeiList: %w", err)
 		return
 	}
 
 	request, err := http.NewRequest("POST", s.config.DamriApi+"/tg_coordinate", bytes.NewBuffer(body))
 	if err != nil {
-		err = fmt.Errorf("unable to create request: %s", err.Error())
+		err = fmt.Errorf("unable to create request: %w", err)
 		return
 	}
 
@@ -97,7 +98,7 @@ func (s *service) GetBusCoordinates(imeiList []string) (res []dto.BusCoordinate,
 	request.Header.Set("Content-Type", "application/json")
 	resp, err := http.DefaultClient.Do(request)
 	if err != nil {
-		err = fmt.Errorf("unable to execute HTTP request to fetch bus coordinates: %s", err.Error())
+		err = fmt.Errorf("unable to execute HTTP request to fetch bus coordinates: %w", err)
 		return
 	}
 
