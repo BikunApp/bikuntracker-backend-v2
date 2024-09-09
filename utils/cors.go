@@ -1,7 +1,6 @@
 package utils
 
 import (
-	"fmt"
 	"net/http"
 )
 
@@ -12,7 +11,6 @@ func CorsMiddleware(next http.Handler) http.Handler {
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 
 		if r.Method == http.MethodOptions {
-			fmt.Println(" >> CORS Preflight :D")
 			w.WriteHeader(http.StatusOK)
 			return
 		}
