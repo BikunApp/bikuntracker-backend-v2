@@ -19,7 +19,7 @@ type Config struct {
 	Token string
 }
 
-func SetupConfig() (config Config, err error) {
+func SetupConfig() (config *Config, err error) {
 	viper.AddConfigPath("../")
 	viper.SetConfigFile(".env")
 	viper.AutomaticEnv()
