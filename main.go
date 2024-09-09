@@ -35,41 +35,14 @@ func main() {
 	authUtil := auth.NewUtil(config)
 	authRepo := auth.NewRepository(pool)
 	authService := auth.NewService(authUtil, authRepo)
+	authHandler := auth.NewHandler(authService, authRepo)
 
-	utils.HandleRoute(
-		"/sso/login",
-		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			body, err := utils.ParseRequestBody[dto.SSOLoginRequestBody](r.Body)
-
-			accessToken, refreshToken, err := authService.SSOLogin(body.Ticket, body.Service)
-			if err != nil {
-				log.Printf(err.Error())
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
-
-			response, err := json.Marshal(dto.TokenResponse{
-				AccessToken:  accessToken,
-				RefreshToken: refreshToken,
-			})
-			if err != nil {
-				log.Printf(err.Error())
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
-
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusOK)
-			_, err = w.Write(response)
-
-			if err != nil {
-				log.Println(err.Error())
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
-		}),
-		nil,
-	)
+	utils.HandleRoute("/auth/sso/login", authHandler.SsoLogin, &utils.Options{AllowedMethods: []string{http.MethodPost}})
+	utils.HandleRoute("/auth/refresh", authHandler.RefreshJwt, &utils.Options{AllowedMethods: []string{http.MethodPost}})
+	utils.HandleRoute("/auth/me", authHandler.GetCurrentUser, &utils.Options{
+		Middlewares:    []utils.Middleware{utils.JwtMiddlewareFactory(authUtil)},
+		AllowedMethods: []string{http.MethodGet},
+	})
 
 	utils.HandleRoute("/",
 		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

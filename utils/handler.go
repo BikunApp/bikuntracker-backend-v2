@@ -4,22 +4,33 @@ import (
 	"net/http"
 )
 
-type Middleware = func(http.Handler) http.Handler
+type Middleware = func(http.HandlerFunc) http.HandlerFunc
 
-func HandleRoute(path string, handler http.Handler, middlewares []Middleware) {
+type Options struct {
+	Middlewares    []Middleware
+	AllowedMethods []string
+}
+
+func HandleRoute(path string, handler http.HandlerFunc, options *Options) {
 	// also apply default middlewares
 	allMiddlewares := []Middleware{
-		CorsMiddleware,
 		LoggerMiddleware,
+		CorsMiddleware,
 	}
 
-	if len(middlewares) > 0 {
-		allMiddlewares = append(allMiddlewares, middlewares...)
+	if options != nil && options.AllowedMethods != nil && len(options.AllowedMethods) > 0 {
+		allMiddlewares = append(allMiddlewares, AllowedMethodMiddlewareFactory(options.AllowedMethods))
+	}
+
+	if options != nil && options.Middlewares != nil {
+		for _, middleware := range options.Middlewares {
+			allMiddlewares = append(allMiddlewares, middleware)
+		}
 	}
 
 	currentHandler := handler
-	for _, middleware := range allMiddlewares {
-		currentHandler = middleware(currentHandler)
+	for i := len(allMiddlewares) - 1; i >= 0; i-- {
+		currentHandler = allMiddlewares[i](currentHandler)
 	}
 
 	http.HandleFunc(path, currentHandler.ServeHTTP)

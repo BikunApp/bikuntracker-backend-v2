@@ -3,6 +3,7 @@ package interfaces
 import (
 	"net/http"
 
+	"github.com/FreeJ1nG/bikuntracker-backend/app/dto"
 	"github.com/FreeJ1nG/bikuntracker-backend/app/models"
 	"github.com/golang-jwt/jwt/v5"
 )
@@ -15,10 +16,11 @@ type AuthUtil interface {
 }
 
 type AuthRepository interface {
-	GetUser(npm string) (res models.User, err error)
-	GetOrCreateUser(name, npm, email string) (res models.User, err error)
+	GetUserByEmail(email string) (res *models.User, err error)
+	GetOrCreateUser(name, npm, email string) (res *models.User, err error)
 }
 
 type AuthService interface {
-	SSOLogin(ticket, serviceName string) (user models.User, err error)
+	SsoLogin(ticket, serviceName string) (res dto.SSOLoginResponse, status int, err error)
+	RefreshToken(refreshToken string) (res *dto.TokenResponse, status int, err error)
 }

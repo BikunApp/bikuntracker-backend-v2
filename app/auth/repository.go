@@ -20,27 +20,30 @@ func NewRepository(db *pgxpool.Pool) *repository {
 	}
 }
 
-func (r *repository) GetUser(npm string) (res models.User, err error) {
+func (r *repository) GetUserByEmail(email string) (res *models.User, err error) {
 	ctx := context.Background()
 
 	row := r.db.QueryRow(
 		ctx,
-		`SELECT * FROM account WHERE npm=$1;`,
-		npm,
+		`SELECT * FROM account WHERE email=$1;`,
+		email,
 	)
-	err = row.Scan(&res.Id, &res.Name, &res.Npm, &res.Email, &res.CreatedAt, &res.UpdatedAt)
+
+	var createdUser models.User
+	err = row.Scan(&createdUser.Id, &createdUser.Name, &createdUser.Npm, &createdUser.Email, &createdUser.CreatedAt, &createdUser.UpdatedAt)
 	if err != nil {
 		err = fmt.Errorf("unable to execute get user SQL: %w", err)
 		return
 	}
 
+	res = &createdUser
 	return
 }
 
-func (r *repository) GetOrCreateUser(name, npm, email string) (res models.User, err error) {
+func (r *repository) GetOrCreateUser(name, npm, email string) (res *models.User, err error) {
 	ctx := context.Background()
 
-	user, err := r.GetUser(npm)
+	user, err := r.GetUserByEmail(email)
 	if err == nil {
 		return user, nil
 	}
@@ -60,11 +63,14 @@ func (r *repository) GetOrCreateUser(name, npm, email string) (res models.User, 
 		npm,
 		email,
 	)
-	err = row.Scan(&res.Id, &res.Name, &res.Npm, &res.Email, &res.CreatedAt, &res.UpdatedAt)
+
+	var createdUser models.User
+	err = row.Scan(&createdUser.Id, &createdUser.Name, &createdUser.Npm, &createdUser.Email, &createdUser.CreatedAt, &createdUser.UpdatedAt)
 	if err != nil {
 		err = fmt.Errorf("unable to execute create user SQL: %w", err)
 		return
 	}
 
+	res = &createdUser
 	return
 }

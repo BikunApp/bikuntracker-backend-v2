@@ -43,3 +43,21 @@ func ParseResponseBody[T interface{}](response *http.Response) (body T, err erro
 
 	return
 }
+
+func EncodeSuccessResponse[T interface{}](w http.ResponseWriter, res T) {
+	response, err := json.Marshal(res)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("unable to marshal response: %s", err.Error()), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Header().Set("Content-Type", "application/json")
+	_, err = w.Write(response)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("unable to write response: %s", err.Error()), http.StatusInternalServerError)
+		return
+	}
+
+	return
+}

@@ -26,7 +26,7 @@ func (rw *responseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
 	return hj.Hijack()
 }
 
-func LoggerMiddleware(next http.Handler) http.Handler {
+func LoggerMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		writer := &responseWriter{w, http.StatusOK}
 		now := time.Now()

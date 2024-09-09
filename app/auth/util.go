@@ -33,7 +33,7 @@ func (u *util) GenerateTokenPair(user *models.User) (signedJwtToken string, sign
 				Issuer:    "bikun-tracker",
 				IssuedAt:  jwt.NewNumericDate(now),
 				ExpiresAt: jwt.NewNumericDate(now.Add(time.Duration(jwtExpiryInDays) * 24 * time.Hour)),
-				Subject:   user.Npm,
+				Subject:   user.Email,
 			},
 		},
 	)
@@ -53,7 +53,7 @@ func (u *util) GenerateTokenPair(user *models.User) (signedJwtToken string, sign
 				Issuer:    "bikun-tracker",
 				IssuedAt:  jwt.NewNumericDate(now),
 				ExpiresAt: jwt.NewNumericDate(now.Add(time.Duration(refreshExpiryInDays) * 24 * time.Hour)),
-				Subject:   user.Npm,
+				Subject:   user.Email,
 			},
 		},
 	)

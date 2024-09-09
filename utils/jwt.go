@@ -13,7 +13,7 @@ type ContextKey string
 var UserContextKey = ContextKey("user-email")
 
 func JwtMiddlewareFactory(authUtil interfaces.AuthUtil) Middleware {
-	return func(next http.Handler) http.Handler {
+	return func(next http.HandlerFunc) http.HandlerFunc {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			tokenString, err := authUtil.ExtractJwtToken(r)
 			if err != nil {

@@ -1,6 +1,10 @@
 package dto
 
-import "encoding/xml"
+import (
+	"encoding/xml"
+
+	"github.com/FreeJ1nG/bikuntracker-backend/app/models"
+)
 
 type SSOLoginRequestBody struct {
 	Ticket  string `json:"ticket"`
@@ -27,5 +31,14 @@ type Attributes struct {
 
 type TokenResponse struct {
 	AccessToken  string `json:"access"`
+	RefreshToken string `json:"refresh"`
+}
+
+type SSOLoginResponse struct {
+	TokenResponse
+	User models.User `json:"user"`
+}
+
+type RefreshTokenRequestBody struct {
 	RefreshToken string `json:"refresh"`
 }
