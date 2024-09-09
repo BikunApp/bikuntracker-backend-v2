@@ -53,7 +53,9 @@ func (s *service) GetAllBusStatus() (res []dto.BusStatus, err error) {
 		return
 	}
 
-	resp, err := http.DefaultClient.Do(request)
+	client := &http.Client{}
+
+	resp, err := client.Do(request)
 	if err != nil {
 		err = fmt.Errorf("unable to execute HTTP request to fetch bus status: %s", err.Error())
 		return
@@ -85,7 +87,9 @@ func (s *service) GetBusCoordinates(imeiList []string) (res []dto.BusCoordinate,
 
 	request.Header.Set("Authorization", "Bearer "+s.config.Token)
 	request.Header.Set("Content-Type", "application/json")
-	resp, err := http.DefaultClient.Do(request)
+
+	client := &http.Client{}
+	resp, err := client.Do(request)
 	if err != nil {
 		err = fmt.Errorf("unable to execute HTTP request to fetch bus coordinates: %s", err.Error())
 		return
