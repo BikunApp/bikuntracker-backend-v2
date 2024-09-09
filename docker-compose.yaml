@@ -7,4 +7,5 @@ services:
       - ./.env:/work/.env:ro
     ports:
       - 5050:5050
-      - 4040:4040
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
