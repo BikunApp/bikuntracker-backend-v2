@@ -1,0 +1,9 @@
+services:
+  backend:
+    build:
+      context: .
+    env_file: .env
+    volumes:
+      - ./.env:/work/.env:ro
+    ports:
+      - 5050:5050

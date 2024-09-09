@@ -1,7 +1,11 @@
 package bus
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
+	"log"
+	"net/http"
 	"time"
 
 	"github.com/FreeJ1nG/bikuntracker-backend/app/dto"
@@ -53,6 +57,29 @@ func (c *container) RunCron() {
 			if err != nil {
 				fmt.Printf("damriService.GetBusCoordinates(): %s\n", err.Error())
 				continue
+			}
+		}
+
+		for i := range coordinates {
+			for _, busStatus := range busStatuses {
+				if busStatus.Imei != coordinates[i].Imei {
+					continue
+				}
+				coordinates[i].Color = busStatus.Color
+			}
+		}
+
+		if c.config.PrintCsvLogs {
+			body, err := json.Marshal(map[string]interface{}{
+				"coordinates": coordinates,
+			})
+			if err != nil {
+				log.Printf("unable to upload logs: %s", err.Error())
+			} else {
+				resp, err := http.Post("http://localhost:4040", "application/json", bytes.NewBuffer(body))
+				if err != nil || resp.StatusCode < 200 && resp.StatusCode >= 300 {
+					log.Printf("something went wrong when trying to POST logs: %s", err.Error())
+				}
 			}
 		}
 
