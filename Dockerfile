@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM golang:1.20-alpine AS builder
+FROM golang:1.23-alpine AS builder
 
 ENV CGO_ENABLED=0 GOOS=linux GOARCH=amd64
 
@@ -14,7 +14,9 @@ COPY . .
 
 RUN go build -o exec .
 
-FROM alpine:latest
+FROM alpine:3.20
+
+RUN apk --no-cache add tzdata
 
 WORKDIR /work
 

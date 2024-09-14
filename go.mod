@@ -1,6 +1,8 @@
 module github.com/FreeJ1nG/bikuntracker-backend
 
-go 1.20
+go 1.23
+
+toolchain go1.23.1
 
 require (
 	github.com/coder/websocket v1.8.12

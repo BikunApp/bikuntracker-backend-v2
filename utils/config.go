@@ -34,20 +34,35 @@ type Config struct {
 }
 
 func (c *Config) setDBString() {
-	c.DBUrl = fmt.Sprintf("postgresql://%s:%s@%s:%s/%s?sslmode=disable",
-		c.DBUser,
-		c.DBPassword,
-		c.DBHost,
-		c.DBPort,
-		c.DBName,
-	)
-	c.DBDsn = fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=disable",
-		c.DBHost,
-		c.DBUser,
-		c.DBPassword,
-		c.DBName,
-		c.DBPort,
-	)
+	if c.DBPort == "" || c.DBPort == "nil" {
+		c.DBUrl = fmt.Sprintf("postgresql://%s:%s@%s/%s?sslmode=disable",
+			c.DBUser,
+			c.DBPassword,
+			c.DBHost,
+			c.DBName,
+		)
+		c.DBDsn = fmt.Sprintf("host=%s user=%s password=%s dbname=%s sslmode=disable",
+			c.DBHost,
+			c.DBUser,
+			c.DBPassword,
+			c.DBName,
+		)
+	} else {
+		c.DBUrl = fmt.Sprintf("postgresql://%s:%s@%s:%s/%s?sslmode=disable",
+			c.DBUser,
+			c.DBPassword,
+			c.DBHost,
+			c.DBPort,
+			c.DBName,
+		)
+		c.DBDsn = fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=disable",
+			c.DBHost,
+			c.DBUser,
+			c.DBPassword,
+			c.DBName,
+			c.DBPort,
+		)
+	}
 }
 
 func SetupConfig() (config *Config, err error) {
