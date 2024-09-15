@@ -6,3 +6,6 @@ migrate:
 
 migrate-down:
 	go run db/migrations/migrate.go -action down $(filter-out $@,$(MAKECMDGOALS))
+
+run:
+	go run main.go
