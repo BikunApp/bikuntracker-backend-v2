@@ -27,7 +27,7 @@ services:
     networks:
       - bikunnet
     depends_on:
-      database: 
+      database:
         condition: service_healthy
 
 volumes:

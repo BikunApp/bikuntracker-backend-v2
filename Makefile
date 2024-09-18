@@ -1,3 +1,9 @@
+up:
+	docker compose up -d
+
+down:
+	docker compose down
+
 migration:
 	migrate create -seq -ext sql -dir db/migrations $(filter-out $@,$(MAKECMDGOALS))
 
