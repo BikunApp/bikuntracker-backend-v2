@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/FreeJ1nG/bikuntracker-backend/app/auth"
@@ -47,7 +48,7 @@ func main() {
 	utils.HandleRoute("/",
 		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			c, err := websocket.Accept(w, r, &websocket.AcceptOptions{
-				OriginPatterns: []string{"localhost:5173"},
+				OriginPatterns: strings.Split(config.WsUpgradeWhitelist, ","),
 			})
 
 			var reason string

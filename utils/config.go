@@ -24,6 +24,8 @@ type Config struct {
 	DBPassword string `mapstructure:"DB_PASSWORD"`
 	DBPort     string `mapstructure:"DB_PORT"`
 
+	WsUpgradeWhitelist string `mapstructure:"WS_UPGRADE_WHITELIST"`
+
 	JwtExpiryInDays        int    `mapstructure:"JWT_EXPIRY_IN_DAYS"`
 	JwtRefreshExpiryInDays int    `mapstructure:"JWT_REFRESH_EXPIRY_IN_DAYS"`
 	JwtSecretKey           string `mapstructure:"JWT_SECRET_KEY"`
