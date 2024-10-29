@@ -12,6 +12,8 @@ type Config struct {
 	DamriLoginUsername string `mapstructure:"DAMRI_LOGIN_USERNAME"`
 	DamriLoginPassword string `mapstructure:"DAMRI_LOGIN_PASSWORD"`
 
+	RMApi string `mapstructure:"RM_API"`
+
 	BikunAdminApi    string `mapstructure:"BIKUN_ADMIN_API"`
 	BikunAdminApiKey string `mapstructure:"BIKUN_ADMIN_API_KEY"`
 

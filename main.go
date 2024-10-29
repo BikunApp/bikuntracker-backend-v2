@@ -12,6 +12,7 @@ import (
 	"github.com/FreeJ1nG/bikuntracker-backend/app/bus"
 	"github.com/FreeJ1nG/bikuntracker-backend/app/damri"
 	"github.com/FreeJ1nG/bikuntracker-backend/app/dto"
+	"github.com/FreeJ1nG/bikuntracker-backend/app/rm"
 	"github.com/FreeJ1nG/bikuntracker-backend/db"
 	"github.com/FreeJ1nG/bikuntracker-backend/utils"
 	"github.com/coder/websocket"
@@ -27,11 +28,14 @@ func main() {
 	pool := db.CreatePool(config.DBDsn)
 	db.TestConnection(pool)
 
+	rmService := rm.NewService(config)
+
 	damriUtil := damri.NewUtil()
 	damriService := damri.NewService(config, damriUtil)
-	busContainer := bus.NewContainer(config, damriService)
+	busContainer := bus.NewContainer(config, rmService, damriService)
 
 	go busContainer.RunCron()
+	go busContainer.RunChangeLaneCron()
 
 	authUtil := auth.NewUtil(config)
 	authRepo := auth.NewRepository(pool)

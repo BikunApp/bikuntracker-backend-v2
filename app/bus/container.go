@@ -3,6 +3,7 @@ package bus
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"time"
@@ -10,24 +11,84 @@ import (
 	"github.com/FreeJ1nG/bikuntracker-backend/app/interfaces"
 	"github.com/FreeJ1nG/bikuntracker-backend/app/models"
 	"github.com/FreeJ1nG/bikuntracker-backend/utils"
+	"github.com/gammazero/deque"
+)
+
+const (
+	DQ_SIZE = 10
 )
 
 type container struct {
 	config         *utils.Config
+	rmService      interfaces.RMService
 	damriService   interfaces.DamriService
-	busCoordinates []models.BusCoordinate
+	busCoordinates map[string]*models.BusCoordinate
+	storedBuses    map[string]*deque.Deque[*models.BusCoordinate]
 }
 
-func NewContainer(config *utils.Config, damriService interfaces.DamriService) *container {
+func NewContainer(config *utils.Config, rmService interfaces.RMService, damriService interfaces.DamriService) *container {
 	return &container{
 		config:         config,
+		rmService:      rmService,
 		damriService:   damriService,
-		busCoordinates: []models.BusCoordinate{},
+		busCoordinates: make(map[string]*models.BusCoordinate),
+		storedBuses:    make(map[string]*deque.Deque[*models.BusCoordinate]),
 	}
 }
 
-func (c *container) GetBusCoordinates() []models.BusCoordinate {
-	return c.busCoordinates
+func (c *container) insertFetchedData(buses map[string]*models.BusCoordinate) {
+	for imei, bus := range buses {
+		_, ok := c.storedBuses[imei]
+		if !ok {
+			c.storedBuses[imei] = deque.New[*models.BusCoordinate]()
+		}
+		if c.storedBuses[imei].Len() < DQ_SIZE {
+			c.storedBuses[imei].PushBack(bus)
+		} else {
+			c.storedBuses[imei].PopFront()
+			c.storedBuses[imei].PushBack(bus)
+		}
+	}
+}
+
+func (c *container) GetBusCoordinates() (res []models.BusCoordinate) {
+	res = make([]models.BusCoordinate, 0)
+	for _, busCoordinate := range c.busCoordinates {
+		res = append(res, *busCoordinate)
+	}
+	return
+}
+
+func (c *container) RunChangeLaneCron() {
+	for {
+		time.Sleep(time.Millisecond * 5500 * DQ_SIZE)
+
+		data := make(map[string][]*models.BusCoordinate)
+
+		for imei, dq := range c.storedBuses {
+			if dq.Len() == DQ_SIZE {
+				lastFewPoints := make([]*models.BusCoordinate, 0)
+				for i := 0; i < dq.Len(); i++ {
+					lastFewPoints = append(lastFewPoints, dq.At(i))
+				}
+				data[imei] = lastFewPoints
+			}
+		}
+
+		log.Println(" ::", data)
+
+		res, err := c.rmService.DetectLane(data)
+		if err != nil {
+			log.Printf("rmService.DetectLane(): %s\n", err.Error())
+			continue
+		}
+
+		fmt.Println(" >>", res)
+
+		for imei, state := range res {
+			fmt.Println(" >>", imei, state)
+		}
+	}
 }
 
 func (c *container) RunCron() {
@@ -61,15 +122,17 @@ func (c *container) RunCron() {
 			}
 		}
 
-		for i := range coordinates {
+		for imei := range coordinates {
 			for _, busStatus := range busStatuses {
-				if busStatus.Imei != coordinates[i].Imei {
+				if busStatus.Imei != coordinates[imei].Imei {
 					continue
 				}
-				coordinates[i].Color = busStatus.Color
-				coordinates[i].Id = busStatus.BusId
+				coordinates[imei].Color = busStatus.Color
+				coordinates[imei].Id = busStatus.BusId
 			}
 		}
+
+		c.insertFetchedData(coordinates)
 
 		if c.config.PrintCsvLogs {
 			body, err := json.Marshal(map[string]interface{}{

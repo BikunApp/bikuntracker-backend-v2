@@ -79,7 +79,7 @@ func (s *service) GetAllBusStatus() (res []models.BusStatus, err error) {
 	return
 }
 
-func (s *service) GetBusCoordinates(imeiList []string) (res []models.BusCoordinate, err error) {
+func (s *service) GetBusCoordinates(imeiList []string) (res map[string]*models.BusCoordinate, err error) {
 	body, err := json.Marshal(dto.DamriGetCoordinatesRequestBody{
 		Imei: imeiList,
 	})
@@ -107,7 +107,11 @@ func (s *service) GetBusCoordinates(imeiList []string) (res []models.BusCoordina
 		return
 	}
 
-	res = respBody.Data
+	res = make(map[string]*models.BusCoordinate)
+	for _, data := range respBody.Data {
+		res[data.Imei] = &data
+	}
+
 	return
 }
 
