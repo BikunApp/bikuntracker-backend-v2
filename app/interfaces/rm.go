@@ -6,5 +6,5 @@ import (
 )
 
 type RMService interface {
-	DetectLane(data map[string][]*models.BusCoordinate) (res dto.DetectRouteResponse, err error)
+	DetectLane(imei string, data []*models.BusCoordinate) (res dto.DetectRouteResponse, err error)
 }

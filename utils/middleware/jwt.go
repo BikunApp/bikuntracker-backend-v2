@@ -1,4 +1,4 @@
-package utils
+package middleware
 
 import (
 	"context"
@@ -10,7 +10,14 @@ import (
 
 type ContextKey string
 
-var UserContextKey = ContextKey("user-email")
+var userContextKey = ContextKey("user-email")
+
+func ExtractUserEmail(r *http.Request) string {
+	if email, ok := r.Context().Value(userContextKey).(string); ok {
+		return email
+	}
+	return ""
+}
 
 func JwtMiddlewareFactory(authUtil interfaces.AuthUtil) Middleware {
 	return func(next http.HandlerFunc) http.HandlerFunc {
@@ -40,7 +47,7 @@ func JwtMiddlewareFactory(authUtil interfaces.AuthUtil) Middleware {
 			}
 
 			email := claims["sub"].(string)
-			ctx := context.WithValue(r.Context(), UserContextKey, email)
+			ctx := context.WithValue(r.Context(), userContextKey, email)
 
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})

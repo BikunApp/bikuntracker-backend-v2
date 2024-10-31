@@ -25,13 +25,20 @@ func (r *repository) GetUserByEmail(email string) (res *models.User, err error) 
 
 	row := r.db.QueryRow(
 		ctx,
-		`SELECT * FROM account WHERE email=$1;`,
+		`SELECT * FROM account WHERE email = $1;`,
 		email,
 	)
 
 	var createdUser models.User
-	err = row.Scan(&createdUser.Id, &createdUser.Name, &createdUser.Npm, &createdUser.Email, &createdUser.CreatedAt, &createdUser.UpdatedAt)
-	if err != nil {
+	if err = row.Scan(
+		&createdUser.Id,
+		&createdUser.Name,
+		&createdUser.Npm,
+		&createdUser.Email,
+		&createdUser.Role,
+		&createdUser.CreatedAt,
+		&createdUser.UpdatedAt,
+	); err != nil {
 		err = fmt.Errorf("unable to execute get user SQL: %w", err)
 		return
 	}
@@ -65,8 +72,15 @@ func (r *repository) GetOrCreateUser(name, npm, email string) (res *models.User,
 	)
 
 	var createdUser models.User
-	err = row.Scan(&createdUser.Id, &createdUser.Name, &createdUser.Npm, &createdUser.Email, &createdUser.CreatedAt, &createdUser.UpdatedAt)
-	if err != nil {
+	if err = row.Scan(
+		&createdUser.Id,
+		&createdUser.Name,
+		&createdUser.Npm,
+		&createdUser.Email,
+		&createdUser.Role,
+		&createdUser.CreatedAt,
+		&createdUser.UpdatedAt,
+	); err != nil {
 		err = fmt.Errorf("unable to execute create user SQL: %w", err)
 		return
 	}

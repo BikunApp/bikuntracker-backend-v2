@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	DQ_SIZE = 10
+	DQ_SIZE = 50
 )
 
 type container struct {
@@ -42,6 +42,13 @@ func (c *container) insertFetchedData(buses map[string]*models.BusCoordinate) {
 		if !ok {
 			c.storedBuses[imei] = deque.New[*models.BusCoordinate]()
 		}
+		if c.storedBuses[imei].Len() > 0 {
+			back := c.storedBuses[imei].Back()
+			if bus.Latitude == back.Latitude && bus.Longitude == back.Longitude {
+				// If the data is a duplicate, we don't care about it
+				continue
+			}
+		}
 		if c.storedBuses[imei].Len() < DQ_SIZE {
 			c.storedBuses[imei].PushBack(bus)
 		} else {
@@ -49,6 +56,31 @@ func (c *container) insertFetchedData(buses map[string]*models.BusCoordinate) {
 			c.storedBuses[imei].PushBack(bus)
 		}
 	}
+}
+
+func (c *container) possiblyChangeBusLane() (err error) {
+	data := make(map[string][]*models.BusCoordinate)
+
+	for imei, dq := range c.storedBuses {
+		if dq.Len() == DQ_SIZE {
+			lastFewPoints := make([]*models.BusCoordinate, 0)
+			for i := 0; i < dq.Len(); i++ {
+				lastFewPoints = append(lastFewPoints, dq.At(i))
+			}
+			data[imei] = lastFewPoints
+			log.Printf("Calling detect lane for bus %v", imei)
+			res, err := c.rmService.DetectLane(imei, lastFewPoints)
+			if err != nil {
+				log.Printf("Unable to detect lane for bus %v", err.Error())
+				continue
+			}
+			for imei, state := range res {
+				fmt.Println(" >>", imei, state)
+			}
+		}
+	}
+
+	return
 }
 
 func (c *container) GetBusCoordinates() (res []models.BusCoordinate) {
@@ -59,39 +91,9 @@ func (c *container) GetBusCoordinates() (res []models.BusCoordinate) {
 	return
 }
 
-func (c *container) RunChangeLaneCron() {
-	for {
-		time.Sleep(time.Millisecond * 5500 * DQ_SIZE)
-
-		data := make(map[string][]*models.BusCoordinate)
-
-		for imei, dq := range c.storedBuses {
-			if dq.Len() == DQ_SIZE {
-				lastFewPoints := make([]*models.BusCoordinate, 0)
-				for i := 0; i < dq.Len(); i++ {
-					lastFewPoints = append(lastFewPoints, dq.At(i))
-				}
-				data[imei] = lastFewPoints
-			}
-		}
-
-		log.Println(" ::", data)
-
-		res, err := c.rmService.DetectLane(data)
-		if err != nil {
-			log.Printf("rmService.DetectLane(): %s\n", err.Error())
-			continue
-		}
-
-		fmt.Println(" >>", res)
-
-		for imei, state := range res {
-			fmt.Println(" >>", imei, state)
-		}
-	}
-}
-
 func (c *container) RunCron() {
+	counter := 0
+
 	for {
 		time.Sleep(time.Millisecond * 5500)
 
@@ -133,6 +135,15 @@ func (c *container) RunCron() {
 		}
 
 		c.insertFetchedData(coordinates)
+		counter += 1
+		counter %= DQ_SIZE
+
+		if counter == 0 {
+			err := c.possiblyChangeBusLane()
+			if err != nil {
+				log.Printf("Unable to change bus lane: %s", err.Error())
+			}
+		}
 
 		if c.config.PrintCsvLogs {
 			body, err := json.Marshal(map[string]interface{}{
