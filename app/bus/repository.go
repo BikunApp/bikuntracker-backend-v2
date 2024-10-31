@@ -77,11 +77,8 @@ func (r *repository) CreateBus(ctx context.Context, data dto.CreateBusRequestBod
 	return
 }
 
-func (r *repository) UpdateBus(ctx context.Context, id string, data dto.UpdateBusRequestBody) (res *models.Bus, err error) {
-	sql, params, err := utils.GetPartialUpdateSQL("bus", data, utils.PkData{
-		FieldName: "id",
-		Value:     id,
-	})
+func (r *repository) UpdateBus(ctx context.Context, whereData *models.WhereData, data dto.UpdateBusRequestBody) (res *models.Bus, err error) {
+	sql, params, err := utils.GetPartialUpdateSQL("bus", data, whereData)
 	if err != nil {
 		return
 	}

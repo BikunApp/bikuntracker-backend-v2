@@ -2,8 +2,8 @@ package bus
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
 	"time"
@@ -22,15 +22,22 @@ type container struct {
 	config         *utils.Config
 	rmService      interfaces.RMService
 	damriService   interfaces.DamriService
+	busService     interfaces.BusService
 	busCoordinates map[string]*models.BusCoordinate
 	storedBuses    map[string]*deque.Deque[*models.BusCoordinate]
 }
 
-func NewContainer(config *utils.Config, rmService interfaces.RMService, damriService interfaces.DamriService) *container {
+func NewContainer(
+	config *utils.Config,
+	rmService interfaces.RMService,
+	damriService interfaces.DamriService,
+	busService interfaces.BusService,
+) *container {
 	return &container{
 		config:         config,
 		rmService:      rmService,
 		damriService:   damriService,
+		busService:     busService,
 		busCoordinates: make(map[string]*models.BusCoordinate),
 		storedBuses:    make(map[string]*deque.Deque[*models.BusCoordinate]),
 	}
@@ -75,7 +82,13 @@ func (c *container) possiblyChangeBusLane() (err error) {
 				continue
 			}
 			for imei, state := range res {
-				fmt.Println(" >>", imei, state)
+				if state != "unknown" {
+					ctx := context.Background()
+					_, err := c.busService.UpdateBusColorByImei(ctx, imei, state)
+					if err != nil {
+						log.Printf("Unable to update bus color by imei of %s to %s", imei, state)
+					}
+				}
 			}
 		}
 	}

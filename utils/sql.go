@@ -4,14 +4,11 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+
+	"github.com/FreeJ1nG/bikuntracker-backend/app/models"
 )
 
-type PkData struct {
-	FieldName string
-	Value     interface{}
-}
-
-func GetPartialUpdateSQL[T any](tableName string, data T, pkData PkData) (sql string, params []interface{}, err error) {
+func GetPartialUpdateSQL[T any](tableName string, data T, whereData *models.WhereData) (sql string, params []interface{}, err error) {
 	v := reflect.ValueOf(data)
 	t := reflect.TypeOf(data)
 
@@ -42,8 +39,8 @@ func GetPartialUpdateSQL[T any](tableName string, data T, pkData PkData) (sql st
 		}
 	}
 
-	sql += strings.Join(setClauses, ", ") + fmt.Sprintf(" WHERE %s = $%d", pkData.FieldName, setCounter)
-	params = append(params, pkData.Value)
+	sql += strings.Join(setClauses, ", ") + fmt.Sprintf(" WHERE %s = $%d", whereData.FieldName, setCounter)
+	params = append(params, whereData.Value)
 
 	return
 }

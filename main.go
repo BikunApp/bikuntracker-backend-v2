@@ -30,13 +30,14 @@ func main() {
 	db.TestConnection(pool)
 
 	busRepo := bus.NewRepository(pool)
+	busService := bus.NewService(busRepo)
 	busHandler := bus.NewHandler(busRepo)
 
 	rmService := rm.NewService(config)
 
 	damriUtil := damri.NewUtil()
 	damriService := damri.NewService(config, damriUtil)
-	busContainer := bus.NewContainer(config, rmService, damriService)
+	busContainer := bus.NewContainer(config, rmService, damriService, busService)
 
 	go busContainer.RunCron()
 
@@ -48,12 +49,14 @@ func main() {
 	utils.HandleRoute("/bus", utils.MethodHandler{http.MethodGet: busHandler.GetBuses, http.MethodPost: busHandler.CreateBus}, &utils.Options{
 		MethodSpecificMiddlewares: utils.MethodSpecificMiddlewares{
 			http.MethodPost: []middleware.Middleware{
+				middleware.JwtMiddlewareFactory(authUtil),
 				middleware.RoleProtectMiddlewareFactory(authRepo, "admin"),
 			},
 		},
 	})
 	utils.HandleRoute("/bus/:id", utils.MethodHandler{http.MethodPut: busHandler.UpdateBus}, &utils.Options{
 		Middlewares: []middleware.Middleware{
+			middleware.JwtMiddlewareFactory(authUtil),
 			middleware.RoleProtectMiddlewareFactory(authRepo, "admin"),
 		},
 	})

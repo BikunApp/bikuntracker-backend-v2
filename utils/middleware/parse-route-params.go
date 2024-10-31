@@ -3,7 +3,6 @@ package middleware
 import (
 	"context"
 	"fmt"
-	"log"
 	"net/http"
 	"strings"
 )
@@ -38,9 +37,6 @@ func ParseRouteParamsMiddlewareFactory(path string) Middleware {
 			requestUrl := r.URL.Path
 			requestUrlSplit := strings.Split(requestUrl, "/")
 			pathSplit := strings.Split(path, "/")
-
-			log.Println(" >> request url", requestUrlSplit)
-			log.Println(" >> path split", pathSplit)
 
 			if len(requestUrlSplit) != len(pathSplit) {
 				http.Error(w, "Invalid URL format, not able to supply route params", http.StatusBadRequest)
