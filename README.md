@@ -32,7 +32,7 @@ For example, if a module called `problem` uses any sort of authentication, say `
 
 ## DTO (Data Transfer Object)
 
-Any definition of request body types and response types will be defined on `app/dto/auth.go`
+Any definition of request body types and response types will be defined on `app/dto/*`, the file name will resemble the module so for auth it will be `app/dto/auth.go`
 
 ## Utility
 
