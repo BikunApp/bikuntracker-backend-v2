@@ -64,7 +64,7 @@ The up migration file specifies how the database should handle an update/change 
 
 Here is the example of a up migration file
 
-```psql
+```sql
 CREATE TABLE account (
   id SERIAL NOT NULL UNIQUE,
   name VARCHAR(256) NOT NULL,
