@@ -67,7 +67,7 @@ func (h *handler) UpdateBus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	res, err := h.repo.UpdateBus(ctx, id, body)
+	res, err := h.repo.UpdateBus(ctx, &models.WhereData{FieldName: "id", Value: id}, body)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
