@@ -24,6 +24,16 @@ or
 air
 ```
 
+## Seeding the database
+
+We can seed the database with initial content (in this case the buses). To run the seeder script, in your terminal, run:
+
+```
+go run scripts/seeder/main.go bus
+```
+
+Other seeders might be added in the future, but right now we only have one seeder
+
 ## Interfaces
 
 Golang does not allow import cycles, to counter that we define interfaces for each **Handler, Service, Repository and Util** in`app/interfaces`. See `app/interfaces/auth.go` for some example, any other reference to another module's instance will use this `interfaces.SomeInstance` interface type
@@ -81,7 +91,7 @@ CREATE TRIGGER update_account_updated_at BEFORE UPDATE ON account FOR EACH ROW E
 
 And an example of a down migration file
 
-```psql
+```sql
 DROP TRIGGER IF EXISTS update_account_updated_at ON account;
 DROP TABLE IF EXISTS account;
 ```
