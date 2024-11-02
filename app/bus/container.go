@@ -84,7 +84,16 @@ func (c *container) possiblyChangeBusLane() (err error) {
 			for imei, state := range res {
 				if state != "unknown" {
 					ctx := context.Background()
-					_, err := c.busService.UpdateBusColorByImei(ctx, imei, state)
+					var cleanedColor string
+					if state == "blue" {
+						cleanedColor = "biru"
+					} else if state == "red" {
+						cleanedColor = "merah"
+					} else {
+						log.Printf("Bus color is not blue or red, something is probably wrong")
+						continue
+					}
+					_, err := c.busService.UpdateBusColorByImei(ctx, imei, cleanedColor)
 					if err != nil {
 						log.Printf("Unable to update bus color by imei of %s to %s", imei, state)
 					}
@@ -110,14 +119,15 @@ func (c *container) RunCron() {
 	for {
 		time.Sleep(time.Millisecond * 5500)
 
-		busStatuses, err := c.damriService.GetAllBusStatus()
+		ctx := context.Background()
+		buses, err := c.busService.GetAllBuses(ctx)
 		if err != nil {
 			log.Printf("damriService.GetAllBusStatus(): %s\n", err.Error())
 			continue
 		}
 
 		imeiList := make([]string, 0)
-		for _, busStatus := range busStatuses {
+		for _, busStatus := range buses {
 			imeiList = append(imeiList, busStatus.Imei)
 		}
 
@@ -138,12 +148,12 @@ func (c *container) RunCron() {
 		}
 
 		for imei := range coordinates {
-			for _, busStatus := range busStatuses {
-				if busStatus.Imei != coordinates[imei].Imei {
+			for _, bus := range buses {
+				if bus.Imei != coordinates[imei].Imei {
 					continue
 				}
-				coordinates[imei].Color = busStatus.Color
-				coordinates[imei].Id = busStatus.BusId
+				coordinates[imei].Color = bus.Color
+				coordinates[imei].Id = bus.Id
 			}
 		}
 

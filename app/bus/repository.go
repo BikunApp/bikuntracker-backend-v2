@@ -7,6 +7,7 @@ import (
 	"github.com/FreeJ1nG/bikuntracker-backend/app/dto"
 	"github.com/FreeJ1nG/bikuntracker-backend/app/models"
 	"github.com/FreeJ1nG/bikuntracker-backend/utils"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -104,5 +105,18 @@ func (r *repository) UpdateBus(ctx context.Context, whereData *models.WhereData,
 	}
 
 	res = &updatedBus
+	return
+}
+
+func (r *repository) InsertBuses(ctx context.Context, data []models.Bus) (err error) {
+	batch := &pgx.Batch{}
+	for _, bus := range data {
+		batch.Queue("INSERT INTO bus (vehicle_no, imei, is_active, color) VALUES ($1, $2, $3, $4)", bus.VehicleNo, bus.Imei, bus.IsActive, bus.Color)
+	}
+	err = r.db.SendBatch(ctx, batch).Close()
+	if err != nil {
+		err = fmt.Errorf("Unable to batch insert buses: %w", err)
+		return
+	}
 	return
 }

@@ -30,3 +30,7 @@ func (s *service) UpdateBusColorByImei(ctx context.Context, imei string, newColo
 		},
 	)
 }
+
+func (s *service) GetAllBuses(ctx context.Context) ([]models.Bus, error) {
+	return s.repo.GetBuses(ctx)
+}

@@ -1,0 +1,62 @@
+[
+  {
+    "vehicle_no": "2/B7524TK",
+    "imei": "19000230233",
+    "is_active": true,
+    "color": "biru"
+  },
+  {
+    "vehicle_no": "3/B7523TK",
+    "imei": "19000230542",
+    "is_active": true,
+    "color": "merah"
+  },
+  {
+    "vehicle_no": "4/B7532TK",
+    "imei": "19000230533",
+    "is_active": true,
+    "color": "biru"
+  },
+  {
+    "vehicle_no": "5/B7529TK",
+    "imei": "19000200452",
+    "is_active": true,
+    "color": "merah"
+  },
+  {
+    "vehicle_no": "6/B7528TK",
+    "imei": "19000230231",
+    "is_active": true,
+    "color": "biru"
+  },
+  {
+    "vehicle_no": "7/B7531TK",
+    "imei": "19000230006",
+    "is_active": true,
+    "color": "merah"
+  },
+  {
+    "vehicle_no": "8/B7411TK",
+    "imei": "19000230459",
+    "is_active": true,
+    "color": "biru"
+  },
+  {
+    "vehicle_no": "9/B7522TK",
+    "imei": "19000230507",
+    "is_active": true,
+    "color": "merah"
+  },
+  {
+    "vehicle_no": "10/B7527TK",
+    "imei": "19000230537",
+    "is_active": true,
+    "color": "biru"
+  },
+  {
+    "vehicle_no": "11/B7525TK",
+    "imei": "19000200676",
+    "is_active": true,
+    "color": "merah"
+  }
+]
