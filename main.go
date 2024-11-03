@@ -12,8 +12,10 @@ import (
 	"github.com/FreeJ1nG/bikuntracker-backend/app/bus"
 	"github.com/FreeJ1nG/bikuntracker-backend/app/damri"
 	"github.com/FreeJ1nG/bikuntracker-backend/app/dto"
+	"github.com/FreeJ1nG/bikuntracker-backend/app/rm"
 	"github.com/FreeJ1nG/bikuntracker-backend/db"
 	"github.com/FreeJ1nG/bikuntracker-backend/utils"
+	"github.com/FreeJ1nG/bikuntracker-backend/utils/middleware"
 	"github.com/coder/websocket"
 )
 
@@ -27,9 +29,15 @@ func main() {
 	pool := db.CreatePool(config.DBDsn)
 	db.TestConnection(pool)
 
+	busRepo := bus.NewRepository(pool)
+	busService := bus.NewService(busRepo)
+	busHandler := bus.NewHandler(busRepo)
+
+	rmService := rm.NewService(config)
+
 	damriUtil := damri.NewUtil()
 	damriService := damri.NewService(config, damriUtil)
-	busContainer := bus.NewContainer(config, damriService)
+	busContainer := bus.NewContainer(config, rmService, damriService, busService)
 
 	go busContainer.RunCron()
 
@@ -38,14 +46,29 @@ func main() {
 	authService := auth.NewService(authUtil, authRepo)
 	authHandler := auth.NewHandler(authService, authRepo)
 
-	utils.HandleRoute("/auth/sso/login", authHandler.SsoLogin, &utils.Options{AllowedMethods: []string{http.MethodPost}})
-	utils.HandleRoute("/auth/refresh", authHandler.RefreshJwt, &utils.Options{AllowedMethods: []string{http.MethodPost}})
-	utils.HandleRoute("/auth/me", authHandler.GetCurrentUser, &utils.Options{
-		Middlewares:    []utils.Middleware{utils.JwtMiddlewareFactory(authUtil)},
-		AllowedMethods: []string{http.MethodGet},
+	utils.HandleRoute("/bus", utils.MethodHandler{http.MethodGet: busHandler.GetBuses, http.MethodPost: busHandler.CreateBus}, &utils.Options{
+		MethodSpecificMiddlewares: utils.MethodSpecificMiddlewares{
+			http.MethodPost: []middleware.Middleware{
+				middleware.JwtMiddlewareFactory(authUtil),
+				middleware.RoleProtectMiddlewareFactory(authRepo, "admin"),
+			},
+		},
+	})
+	utils.HandleRoute("/bus/:id", utils.MethodHandler{http.MethodPut: busHandler.UpdateBus}, &utils.Options{
+		Middlewares: []middleware.Middleware{
+			middleware.JwtMiddlewareFactory(authUtil),
+			middleware.RoleProtectMiddlewareFactory(authRepo, "admin"),
+		},
 	})
 
-	utils.HandleRoute("/",
+	utils.HandleRoute("/auth/sso/login", utils.MethodHandler{http.MethodPost: authHandler.SsoLogin}, nil)
+	utils.HandleRoute("/auth/refresh", utils.MethodHandler{http.MethodPost: authHandler.RefreshJwt}, nil)
+	utils.HandleRoute("/auth/me",
+		utils.MethodHandler{http.MethodGet: authHandler.GetCurrentUser},
+		&utils.Options{Middlewares: []middleware.Middleware{middleware.JwtMiddlewareFactory(authUtil)}},
+	)
+
+	utils.HandleRoute("/ws",
 		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			c, err := websocket.Accept(w, r, &websocket.AcceptOptions{
 				OriginPatterns: strings.Split(config.WsUpgradeWhitelist, ","),

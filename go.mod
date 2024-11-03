@@ -6,6 +6,7 @@ toolchain go1.23.1
 
 require (
 	github.com/coder/websocket v1.8.12
+	github.com/gammazero/deque v0.2.1
 	github.com/golang-jwt/jwt/v5 v5.2.1
 	github.com/golang-migrate/migrate/v4 v4.17.1
 	github.com/jackc/pgx/v5 v5.7.0

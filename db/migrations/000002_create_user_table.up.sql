@@ -1,11 +1,12 @@
 CREATE TABLE account (
   id SERIAL NOT NULL UNIQUE,
   name VARCHAR(256) NOT NULL,
-  npm VARCHAR(16),
+  npm VARCHAR(64),
   email VARCHAR(64),
+  role VARCHAR(16) DEFAULT 'default',
   created_at BIGINT DEFAULT EXTRACT(EPOCH FROM CURRENT_TIMESTAMP),
   updated_at BIGINT DEFAULT EXTRACT(EPOCH FROM CURRENT_TIMESTAMP),
   PRIMARY KEY (id, npm)
 );
 
-CREATE TRIGGER update_account_updated_at BEFORE UPDATE ON Account FOR EACH ROW EXECUTE PROCEDURE update_modified_column();
+CREATE TRIGGER update_account_updated_at BEFORE UPDATE ON account FOR EACH ROW EXECUTE PROCEDURE update_modified_column();
