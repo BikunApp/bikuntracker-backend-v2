@@ -20,11 +20,11 @@ const (
 )
 
 type service struct {
-	config *utils.Config
+	config *models.Config
 	util   interfaces.DamriUtil
 }
 
-func NewService(config *utils.Config, util interfaces.DamriUtil) *service {
+func NewService(config *models.Config, util interfaces.DamriUtil) *service {
 	return &service{
 		config: config,
 		util:   util,
@@ -56,30 +56,7 @@ func (s *service) Authenticate() (token string, err error) {
 	return
 }
 
-func (s *service) GetAllBusStatus() (res []models.BusStatus, err error) {
-	request, err := http.NewRequest("GET", s.config.BikunAdminApi+"/bus/status", nil)
-	request.Header.Set("api_key", s.config.BikunAdminApiKey)
-	if err != nil {
-		err = fmt.Errorf("unable to create request: %w", err)
-		return
-	}
-
-	resp, err := http.DefaultClient.Do(request)
-	if err != nil {
-		err = fmt.Errorf("unable to execute HTTP request to fetch bus status: %w", err)
-		return
-	}
-
-	body, err := utils.ParseResponseBody[dto.BikunAdminGetAllBusStatusResponse](resp)
-	if err != nil {
-		return
-	}
-
-	res = body.Data
-	return
-}
-
-func (s *service) GetBusCoordinates(imeiList []string) (res []models.BusCoordinate, err error) {
+func (s *service) GetBusCoordinates(imeiList []string) (res map[string]*models.BusCoordinate, err error) {
 	body, err := json.Marshal(dto.DamriGetCoordinatesRequestBody{
 		Imei: imeiList,
 	})
@@ -107,7 +84,11 @@ func (s *service) GetBusCoordinates(imeiList []string) (res []models.BusCoordina
 		return
 	}
 
-	res = respBody.Data
+	res = make(map[string]*models.BusCoordinate)
+	for _, data := range respBody.Data {
+		res[data.Imei] = &data
+	}
+
 	return
 }
 

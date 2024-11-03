@@ -1,4 +1,4 @@
-package utils
+package middleware
 
 import (
 	"context"
@@ -10,18 +10,35 @@ import (
 
 type ContextKey string
 
-var UserContextKey = ContextKey("user-email")
+var userContextKey = ContextKey("user-email")
 
-func JwtMiddlewareFactory(authUtil interfaces.AuthUtil) Middleware {
+func ExtractUserEmail(r *http.Request) string {
+	if email, ok := r.Context().Value(userContextKey).(string); ok {
+		return email
+	}
+	return ""
+}
+
+type jwtMiddlewareFactory struct {
+	authUtil interfaces.AuthUtil
+}
+
+func NewJwtMiddlewareFactory(authUtil interfaces.AuthUtil) *jwtMiddlewareFactory {
+	return &jwtMiddlewareFactory{
+		authUtil: authUtil,
+	}
+}
+
+func (jmf *jwtMiddlewareFactory) Make() Middleware {
 	return func(next http.HandlerFunc) http.HandlerFunc {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			tokenString, err := authUtil.ExtractJwtToken(r)
+			tokenString, err := jmf.authUtil.ExtractJwtToken(r)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusUnauthorized)
 				return
 			}
 
-			token, err := authUtil.ToJwtToken(tokenString)
+			token, err := jmf.authUtil.ToJwtToken(tokenString)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusUnauthorized)
 				return
@@ -40,7 +57,7 @@ func JwtMiddlewareFactory(authUtil interfaces.AuthUtil) Middleware {
 			}
 
 			email := claims["sub"].(string)
-			ctx := context.WithValue(r.Context(), UserContextKey, email)
+			ctx := context.WithValue(r.Context(), userContextKey, email)
 
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})

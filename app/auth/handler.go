@@ -6,6 +6,7 @@ import (
 	"github.com/FreeJ1nG/bikuntracker-backend/app/dto"
 	"github.com/FreeJ1nG/bikuntracker-backend/app/interfaces"
 	"github.com/FreeJ1nG/bikuntracker-backend/utils"
+	"github.com/FreeJ1nG/bikuntracker-backend/utils/middleware"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -22,7 +23,7 @@ func NewHandler(authService interfaces.AuthService, authRepo interfaces.AuthRepo
 }
 
 func (h *handler) GetCurrentUser(w http.ResponseWriter, r *http.Request) {
-	email := r.Context().Value(utils.UserContextKey).(string)
+	email := middleware.ExtractUserEmail(r)
 
 	user, err := h.repo.GetUserByEmail(email)
 	if err != nil {

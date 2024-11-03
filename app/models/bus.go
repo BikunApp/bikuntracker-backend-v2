@@ -15,11 +15,12 @@ type BusCoordinate struct {
 	GpsTime      time.Time `json:"gps_time"`
 }
 
-type BusStatus struct {
-	BusId       int       `json:"bus_id"`
-	VehicleName string    `json:"vehicle_name"`
-	Imei        string    `json:"imei"`
-	IsActive    bool      `json:"is_active"`
-	Color       string    `json:"color"`
-	UpdatedAt   time.Time `json:"updated_at"`
+type Bus struct {
+	Id        int    `json:"id"`
+	VehicleNo string `json:"vehicle_no"`
+	Imei      string `json:"imei"`
+	IsActive  bool   `json:"is_active"`
+	Color     string `json:"color"`
+	CreatedAt uint   `json:"created_at"`
+	UpdatedAt uint   `json:"updated_at"`
 }
