@@ -46,18 +46,20 @@ func main() {
 	authService := auth.NewService(authUtil, authRepo)
 	authHandler := auth.NewHandler(authService, authRepo)
 
+	roleProtectMiddlewareFactory := middleware.NewRoleProtectMiddlewareFactory(config, authRepo)
+	adminApiKeyProtectorMiddleware := roleProtectMiddlewareFactory.MakeAdminApiKeyProtector()
+	jwtMiddleware := middleware.NewJwtMiddlewareFactory(authUtil).Make()
+
 	utils.HandleRoute("/bus", utils.MethodHandler{http.MethodGet: busHandler.GetBuses, http.MethodPost: busHandler.CreateBus}, &utils.Options{
 		MethodSpecificMiddlewares: utils.MethodSpecificMiddlewares{
 			http.MethodPost: []middleware.Middleware{
-				middleware.JwtMiddlewareFactory(authUtil),
-				middleware.RoleProtectMiddlewareFactory(authRepo, "admin"),
+				adminApiKeyProtectorMiddleware,
 			},
 		},
 	})
-	utils.HandleRoute("/bus/:id", utils.MethodHandler{http.MethodPut: busHandler.UpdateBus}, &utils.Options{
+	utils.HandleRoute("/bus/:id", utils.MethodHandler{http.MethodPut: busHandler.UpdateBus, http.MethodDelete: busHandler.DeleteBus}, &utils.Options{
 		Middlewares: []middleware.Middleware{
-			middleware.JwtMiddlewareFactory(authUtil),
-			middleware.RoleProtectMiddlewareFactory(authRepo, "admin"),
+			adminApiKeyProtectorMiddleware,
 		},
 	})
 
@@ -65,7 +67,7 @@ func main() {
 	utils.HandleRoute("/auth/refresh", utils.MethodHandler{http.MethodPost: authHandler.RefreshJwt}, nil)
 	utils.HandleRoute("/auth/me",
 		utils.MethodHandler{http.MethodGet: authHandler.GetCurrentUser},
-		&utils.Options{Middlewares: []middleware.Middleware{middleware.JwtMiddlewareFactory(authUtil)}},
+		&utils.Options{Middlewares: []middleware.Middleware{jwtMiddleware}},
 	)
 
 	utils.HandleRoute("/ws",

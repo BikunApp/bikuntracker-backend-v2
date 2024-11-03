@@ -20,5 +20,6 @@ type BusRepository interface {
 	GetBuses(ctx context.Context) (res []models.Bus, err error)
 	CreateBus(ctx context.Context, data dto.CreateBusRequestBody) (res *models.Bus, err error)
 	UpdateBus(ctx context.Context, whereData *models.WhereData, data dto.UpdateBusRequestBody) (res *models.Bus, err error)
+	DeleteBus(ctx context.Context, id string) (err error)
 	InsertBuses(ctx context.Context, data []models.Bus) (err error)
 }

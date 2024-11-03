@@ -20,11 +20,11 @@ const (
 )
 
 type service struct {
-	config *utils.Config
+	config *models.Config
 	util   interfaces.DamriUtil
 }
 
-func NewService(config *utils.Config, util interfaces.DamriUtil) *service {
+func NewService(config *models.Config, util interfaces.DamriUtil) *service {
 	return &service{
 		config: config,
 		util:   util,

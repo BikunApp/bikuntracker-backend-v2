@@ -19,16 +19,26 @@ func ExtractUserEmail(r *http.Request) string {
 	return ""
 }
 
-func JwtMiddlewareFactory(authUtil interfaces.AuthUtil) Middleware {
+type jwtMiddlewareFactory struct {
+	authUtil interfaces.AuthUtil
+}
+
+func NewJwtMiddlewareFactory(authUtil interfaces.AuthUtil) *jwtMiddlewareFactory {
+	return &jwtMiddlewareFactory{
+		authUtil: authUtil,
+	}
+}
+
+func (jmf *jwtMiddlewareFactory) Make() Middleware {
 	return func(next http.HandlerFunc) http.HandlerFunc {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			tokenString, err := authUtil.ExtractJwtToken(r)
+			tokenString, err := jmf.authUtil.ExtractJwtToken(r)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusUnauthorized)
 				return
 			}
 
-			token, err := authUtil.ToJwtToken(tokenString)
+			token, err := jmf.authUtil.ToJwtToken(tokenString)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusUnauthorized)
 				return
