@@ -61,3 +61,8 @@ func EncodeSuccessResponse[T interface{}](w http.ResponseWriter, res T) {
 
 	return
 }
+
+func EncodeEmptySuccessResponse(w http.ResponseWriter) {
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("ok"))
+}

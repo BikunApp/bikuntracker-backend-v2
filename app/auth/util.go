@@ -7,16 +7,15 @@ import (
 	"time"
 
 	"github.com/FreeJ1nG/bikuntracker-backend/app/models"
-	"github.com/FreeJ1nG/bikuntracker-backend/utils"
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
 )
 
 type util struct {
-	config *utils.Config
+	config *models.Config
 }
 
-func NewUtil(config *utils.Config) *util {
+func NewUtil(config *models.Config) *util {
 	return &util{
 		config: config,
 	}

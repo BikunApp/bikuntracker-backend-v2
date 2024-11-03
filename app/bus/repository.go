@@ -108,6 +108,11 @@ func (r *repository) UpdateBus(ctx context.Context, whereData *models.WhereData,
 	return
 }
 
+func (r *repository) DeleteBus(ctx context.Context, id string) (err error) {
+	_, err = r.db.Exec(ctx, "DELETE FROM bus WHERE id = $1", id)
+	return
+}
+
 func (r *repository) InsertBuses(ctx context.Context, data []models.Bus) (err error) {
 	batch := &pgx.Batch{}
 	for _, bus := range data {

@@ -10,7 +10,6 @@ import (
 
 	"github.com/FreeJ1nG/bikuntracker-backend/app/interfaces"
 	"github.com/FreeJ1nG/bikuntracker-backend/app/models"
-	"github.com/FreeJ1nG/bikuntracker-backend/utils"
 	"github.com/gammazero/deque"
 )
 
@@ -24,7 +23,7 @@ type dqStore struct {
 }
 
 type container struct {
-	config         *utils.Config
+	config         *models.Config
 	rmService      interfaces.RMService
 	damriService   interfaces.DamriService
 	busService     interfaces.BusService
@@ -33,7 +32,7 @@ type container struct {
 }
 
 func NewContainer(
-	config *utils.Config,
+	config *models.Config,
 	rmService interfaces.RMService,
 	damriService interfaces.DamriService,
 	busService interfaces.BusService,
