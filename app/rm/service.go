@@ -13,10 +13,10 @@ import (
 )
 
 type service struct {
-	config *utils.Config
+	config *models.Config
 }
 
-func NewService(config *utils.Config) *service {
+func NewService(config *models.Config) *service {
 	return &service{
 		config: config,
 	}

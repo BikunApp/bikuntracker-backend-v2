@@ -75,3 +75,21 @@ func (h *handler) UpdateBus(w http.ResponseWriter, r *http.Request) {
 
 	utils.EncodeSuccessResponse[models.Bus](w, *res)
 }
+
+func (h *handler) DeleteBus(w http.ResponseWriter, r *http.Request) {
+	ctx := context.Background()
+
+	id, status, err := middleware.GetRouteParam(r, "id")
+	if err != nil {
+		http.Error(w, err.Error(), status)
+		return
+	}
+
+	err = h.repo.DeleteBus(ctx, id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	utils.EncodeEmptySuccessResponse(w)
+}

@@ -32,8 +32,3 @@ type DamriGetCoordinatesResponse struct {
 	Message   string                 `json:"message"`
 	Data      []models.BusCoordinate `json:"data"`
 }
-
-type BikunAdminGetAllBusStatusResponse struct {
-	Success bool               `json:"success"`
-	Data    []models.BusStatus `json:"data"`
-}

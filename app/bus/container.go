@@ -10,7 +10,6 @@ import (
 
 	"github.com/FreeJ1nG/bikuntracker-backend/app/interfaces"
 	"github.com/FreeJ1nG/bikuntracker-backend/app/models"
-	"github.com/FreeJ1nG/bikuntracker-backend/utils"
 	"github.com/gammazero/deque"
 )
 
@@ -18,17 +17,22 @@ const (
 	DQ_SIZE = 50
 )
 
+type dqStore struct {
+	dq      *deque.Deque[*models.BusCoordinate]
+	counter int
+}
+
 type container struct {
-	config         *utils.Config
+	config         *models.Config
 	rmService      interfaces.RMService
 	damriService   interfaces.DamriService
 	busService     interfaces.BusService
 	busCoordinates map[string]*models.BusCoordinate
-	storedBuses    map[string]*deque.Deque[*models.BusCoordinate]
+	storedBuses    map[string]*dqStore
 }
 
 func NewContainer(
-	config *utils.Config,
+	config *models.Config,
 	rmService interfaces.RMService,
 	damriService interfaces.DamriService,
 	busService interfaces.BusService,
@@ -39,70 +43,8 @@ func NewContainer(
 		damriService:   damriService,
 		busService:     busService,
 		busCoordinates: make(map[string]*models.BusCoordinate),
-		storedBuses:    make(map[string]*deque.Deque[*models.BusCoordinate]),
+		storedBuses:    make(map[string]*dqStore),
 	}
-}
-
-func (c *container) insertFetchedData(buses map[string]*models.BusCoordinate) {
-	for imei, bus := range buses {
-		_, ok := c.storedBuses[imei]
-		if !ok {
-			c.storedBuses[imei] = deque.New[*models.BusCoordinate]()
-		}
-		if c.storedBuses[imei].Len() > 0 {
-			back := c.storedBuses[imei].Back()
-			if bus.Latitude == back.Latitude && bus.Longitude == back.Longitude {
-				// If the data is a duplicate, we don't care about it
-				continue
-			}
-		}
-		if c.storedBuses[imei].Len() < DQ_SIZE {
-			c.storedBuses[imei].PushBack(bus)
-		} else {
-			c.storedBuses[imei].PopFront()
-			c.storedBuses[imei].PushBack(bus)
-		}
-	}
-}
-
-func (c *container) possiblyChangeBusLane() (err error) {
-	data := make(map[string][]*models.BusCoordinate)
-
-	for imei, dq := range c.storedBuses {
-		if dq.Len() == DQ_SIZE {
-			lastFewPoints := make([]*models.BusCoordinate, 0)
-			for i := 0; i < dq.Len(); i++ {
-				lastFewPoints = append(lastFewPoints, dq.At(i))
-			}
-			data[imei] = lastFewPoints
-			log.Printf("Calling detect lane for bus %v", imei)
-			res, err := c.rmService.DetectLane(imei, lastFewPoints)
-			if err != nil {
-				log.Printf("Unable to detect lane for bus %v", err.Error())
-				continue
-			}
-			for imei, state := range res {
-				if state != "unknown" {
-					ctx := context.Background()
-					var cleanedColor string
-					if state == "blue" {
-						cleanedColor = "biru"
-					} else if state == "red" {
-						cleanedColor = "merah"
-					} else {
-						log.Printf("Bus color is not blue or red, something is probably wrong")
-						continue
-					}
-					_, err := c.busService.UpdateBusColorByImei(ctx, imei, cleanedColor)
-					if err != nil {
-						log.Printf("Unable to update bus color by imei of %s to %s", imei, state)
-					}
-				}
-			}
-		}
-	}
-
-	return
 }
 
 func (c *container) GetBusCoordinates() (res []models.BusCoordinate) {
@@ -114,8 +56,6 @@ func (c *container) GetBusCoordinates() (res []models.BusCoordinate) {
 }
 
 func (c *container) RunCron() {
-	counter := 0
-
 	for {
 		time.Sleep(time.Millisecond * 5500)
 
@@ -158,14 +98,10 @@ func (c *container) RunCron() {
 		}
 
 		c.insertFetchedData(coordinates)
-		counter += 1
-		counter %= DQ_SIZE
 
-		if counter == 0 {
-			err := c.possiblyChangeBusLane()
-			if err != nil {
-				log.Printf("Unable to change bus lane: %s", err.Error())
-			}
+		err = c.possiblyChangeBusLane()
+		if err != nil {
+			log.Printf("Unable to change bus lane: %s", err.Error())
 		}
 
 		if c.config.PrintCsvLogs {
@@ -184,4 +120,75 @@ func (c *container) RunCron() {
 
 		c.busCoordinates = coordinates
 	}
+}
+
+func (c *container) insertFetchedData(buses map[string]*models.BusCoordinate) {
+	for imei, bus := range buses {
+		_, ok := c.storedBuses[imei]
+		if !ok {
+			c.storedBuses[imei] = &dqStore{
+				dq:      deque.New[*models.BusCoordinate](),
+				counter: 0,
+			}
+		}
+
+		if c.storedBuses[imei].dq.Len() > 0 {
+			back := c.storedBuses[imei].dq.Back()
+			if bus.Latitude == back.Latitude && bus.Longitude == back.Longitude {
+				// If the data is a duplicate, we don't care about it
+				continue
+			}
+		}
+
+		c.storedBuses[imei].counter++
+		c.storedBuses[imei].counter %= DQ_SIZE
+		if c.storedBuses[imei].dq.Len() < DQ_SIZE {
+			c.storedBuses[imei].dq.PushBack(bus)
+		} else {
+			c.storedBuses[imei].dq.PopFront()
+			c.storedBuses[imei].dq.PushBack(bus)
+		}
+	}
+}
+
+func (c *container) possiblyChangeBusLane() (err error) {
+	data := make(map[string][]*models.BusCoordinate)
+
+	for imei, dqStore := range c.storedBuses {
+		if dqStore.counter == 0 && dqStore.dq.Len() == DQ_SIZE {
+			// We only want to process the deque when it is full of new bus data
+			// This case is when the deque is full (len == DQ SIZE) AND the circular counter is back to zero
+			lastFewPoints := make([]*models.BusCoordinate, 0)
+			for i := 0; i < dqStore.dq.Len(); i++ {
+				lastFewPoints = append(lastFewPoints, dqStore.dq.At(i))
+			}
+			data[imei] = lastFewPoints
+			res, err := c.rmService.DetectLane(imei, lastFewPoints)
+			if err != nil {
+				log.Printf("Unable to detect lane for bus %v", err.Error())
+				continue
+			}
+			for imei, state := range res {
+				if state != "unknown" {
+					ctx := context.Background()
+					var cleanedColor string
+					if state == "blue" {
+						cleanedColor = "biru"
+					} else if state == "red" {
+						cleanedColor = "merah"
+					} else {
+						log.Printf("Bus color is not blue or red, something is probably wrong")
+						continue
+					}
+					log.Printf("Detected lane for bus %v: %v", imei, cleanedColor)
+					_, err := c.busService.UpdateBusColorByImei(ctx, imei, cleanedColor)
+					if err != nil {
+						log.Printf("Unable to update bus color by imei of %s to %s", imei, cleanedColor)
+					}
+				}
+			}
+		}
+	}
+
+	return
 }
