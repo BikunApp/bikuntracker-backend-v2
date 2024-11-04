@@ -2,6 +2,10 @@ package dto
 
 import "github.com/FreeJ1nG/bikuntracker-backend/app/models"
 
+type GetReportByIdRequestBody struct {
+	Id string  `json:"id"`
+}
+
 type GetReportByIdResponse struct {
 	Report models.Report `json:"report"`
 }
@@ -15,4 +19,8 @@ type CreateReportRequestBody struct {
 	Description string `json:"description"`
 	Location    string `json:"location"`
 	OccuredAt   uint   `json:"occured_at"`
+}
+
+type CreateReportResponse struct {
+	Report models.Report `json:"report"`
 }

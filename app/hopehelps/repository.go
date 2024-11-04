@@ -48,7 +48,33 @@ func (r *repository) GetReports(ctx context.Context) (res []models.Report, err e
 	return
 }
 
-func (r *repository) CreateReport(ctx context.Context, data dto.CreateReportRequestBody) (res *models.Report, err error) {
+func (r *repository) GetReportById(ctx context.Context, id string) (res *models.Report, err error) {
+	row := r.db.QueryRow(
+		ctx,
+		`SELECT * FROM report
+		WHERE id=$1`,
+		id,
+	)
+
+	var report models.Report
+	if err = row.Scan(
+		&report.Id,
+		&report.UserId,
+		&report.Description,
+		&report.Location,
+		&report.OccuredAt,
+		&report.CreatedAt,
+		&report.UpdatedAt,
+	); err != nil {
+		err = fmt.Errorf("error while parsing created report object from SQL: %s", err.Error())
+		return
+	}
+
+	res = &report
+	return
+}
+
+func (r *repository) CreateReport(ctx context.Context, data *dto.CreateReportRequestBody) (res *models.Report, err error) {
 	row := r.db.QueryRow(
 		ctx, 
 		`INSERT INTO report (user_id, description, location, occured_at)
