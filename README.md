@@ -12,14 +12,13 @@ or
 docker compose up -d
 ```
 
-Lastly, to run the development server
+Lastly, install [air](https://github.com/air-verse/air)
 
 ```
-make dev
+go install github.com/air-verse/air@latest
 ```
 
-or
-
+And finally, run the development server by running
 ```
 air
 ```
