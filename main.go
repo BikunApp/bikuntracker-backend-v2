@@ -12,6 +12,7 @@ import (
 	"github.com/FreeJ1nG/bikuntracker-backend/app/bus"
 	"github.com/FreeJ1nG/bikuntracker-backend/app/damri"
 	"github.com/FreeJ1nG/bikuntracker-backend/app/dto"
+	"github.com/FreeJ1nG/bikuntracker-backend/app/hopehelps"
 	"github.com/FreeJ1nG/bikuntracker-backend/app/rm"
 	"github.com/FreeJ1nG/bikuntracker-backend/db"
 	"github.com/FreeJ1nG/bikuntracker-backend/utils"
@@ -46,6 +47,10 @@ func main() {
 	authService := auth.NewService(authUtil, authRepo)
 	authHandler := auth.NewHandler(authService, authRepo)
 
+	hopehelpsRepo := hopehelps.NewRepository(pool)
+	hopehelpsService := hopehelps.NewService(hopehelpsRepo)
+	hopehelpsHandler := hopehelps.NewHandler(hopehelpsService)
+
 	roleProtectMiddlewareFactory := middleware.NewRoleProtectMiddlewareFactory(config, authRepo)
 	adminApiKeyProtectorMiddleware := roleProtectMiddlewareFactory.MakeAdminApiKeyProtector()
 	jwtMiddleware := middleware.NewJwtMiddlewareFactory(authUtil).Make()
@@ -61,6 +66,10 @@ func main() {
 		Middlewares: []middleware.Middleware{
 			adminApiKeyProtectorMiddleware,
 		},
+	})
+
+	utils.HandleRoute("/hopehelps", utils.MethodHandler{http.MethodPost: hopehelpsHandler.CreateReport, http.MethodGet: hopehelpsHandler.GetReports}, &utils.Options{
+
 	})
 
 	utils.HandleRoute("/auth/sso/login", utils.MethodHandler{http.MethodPost: authHandler.SsoLogin}, nil)
