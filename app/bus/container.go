@@ -10,6 +10,7 @@ import (
 
 	"github.com/FreeJ1nG/bikuntracker-backend/app/interfaces"
 	"github.com/FreeJ1nG/bikuntracker-backend/app/models"
+	"github.com/coder/websocket"
 	"github.com/gammazero/deque"
 )
 
@@ -55,49 +56,146 @@ func (c *container) GetBusCoordinates() (res []models.BusCoordinate) {
 	return
 }
 
-func (c *container) RunCron() {
-	for {
-		time.Sleep(time.Millisecond * 5500)
+func (c *container) GetBusCoordinatesMap() map[string]*models.BusCoordinate {
+	return c.busCoordinates
+}
 
+// func (c *container) RunCron() {
+// 	for {
+// 		time.Sleep(time.Millisecond * 5500)
+
+// 		ctx := context.Background()
+// 		buses, err := c.busService.GetAllBuses(ctx)
+// 		if err != nil {
+// 			log.Printf("damriService.GetAllBusStatus(): %s\n", err.Error())
+// 			continue
+// 		}
+
+// 		imeiList := make([]string, 0)
+// 		for _, busStatus := range buses {
+// 			imeiList = append(imeiList, busStatus.Imei)
+// 		}
+
+// 		coordinates, err := c.damriService.GetBusCoordinates(imeiList)
+// 		if err != nil {
+// 			// If this fails, we try to authenticate before redoing the request
+// 			newToken, err := c.damriService.Authenticate()
+// 			if err != nil {
+// 				log.Printf("damriService.Authenticate(): %s\n", err.Error())
+// 				continue
+// 			}
+// 			c.config.Token = newToken
+// 			coordinates, err = c.damriService.GetBusCoordinates(imeiList)
+// 			if err != nil {
+// 				log.Printf("damriService.GetBusCoordinates(): %s\n", err.Error())
+// 				continue
+// 			}
+// 		}
+
+// 		for imei := range coordinates {
+// 			for _, bus := range buses {
+// 				if bus.Imei != coordinates[imei].Imei {
+// 					continue
+// 				}
+// 				coordinates[imei].Color = bus.Color
+// 				coordinates[imei].Id = bus.Id
+// 			}
+// 		}
+
+// 		c.insertFetchedData(coordinates)
+
+// 		err = c.possiblyChangeBusLane()
+// 		if err != nil {
+// 			log.Printf("Unable to change bus lane: %s", err.Error())
+// 		}
+
+// 		if c.config.PrintCsvLogs {
+// 			body, err := json.Marshal(map[string]interface{}{
+// 				"coordinates": coordinates,
+// 			})
+// 			if err != nil {
+// 				log.Printf("unable to upload logs: %s", err.Error())
+// 			} else {
+// 				resp, err := http.Post("http://localhost:4040", "application/json", bytes.NewBuffer(body))
+// 				if err != nil || resp.StatusCode < 200 && resp.StatusCode >= 300 {
+// 					log.Printf("something went wrong when trying to POST logs: %s", err.Error())
+// 				}
+// 			}
+// 		}
+
+// 		c.busCoordinates = coordinates
+// 	}
+// }
+
+func (c *container) RunWebSocket() {
+	wsUrl := c.config.WsUrl
+	if wsUrl == "" {
+		log.Println("WS_URL is not set in config")
+		return
+	}
+
+	for {
 		ctx := context.Background()
-		buses, err := c.busService.GetAllBuses(ctx)
+		c.connectAndConsumeWS(ctx, wsUrl)
+		// If connection drops, wait a bit and retry
+		time.Sleep(3 * time.Second)
+	}
+}
+
+func (c *container) connectAndConsumeWS(ctx context.Context, wsUrl string) {
+	log.Printf("Connecting to WebSocket: %s", wsUrl)
+	conn, _, err := websocket.Dial(ctx, wsUrl, nil)
+	if err != nil {
+		log.Printf("WebSocket dial error: %v", err)
+		return
+	}
+	defer conn.Close(websocket.StatusNormalClosure, "done")
+
+	for {
+		_, data, err := conn.Read(ctx)
 		if err != nil {
-			log.Printf("damriService.GetAllBusStatus(): %s\n", err.Error())
+			log.Printf("WebSocket read error: %v", err)
+			return
+		}
+
+		var wsResp struct {
+			Message string                   `json:"message"`
+			Data    []map[string]interface{} `json:"data"`
+		}
+		err = json.Unmarshal(data, &wsResp)
+		if err != nil {
+			log.Printf("WebSocket JSON unmarshal error: %v", err)
 			continue
 		}
 
-		imeiList := make([]string, 0)
-		for _, busStatus := range buses {
-			imeiList = append(imeiList, busStatus.Imei)
+		coordinates := make(map[string]*models.BusCoordinate)
+		for _, d := range wsResp.Data {
+			imei, _ := d["imei"].(string)
+			lat, _ := d["latitude"].(float64)
+			lng, _ := d["longitude"].(float64)
+			speed, _ := d["speed"].(float64)
+			bus := &models.BusCoordinate{
+				Imei:      imei,
+				Latitude:  lat,
+				Longitude: lng,
+				Speed:     int(speed),
+			}
+			coordinates[imei] = bus
 		}
 
-		coordinates, err := c.damriService.GetBusCoordinates(imeiList)
-		if err != nil {
-			// If this fails, we try to authenticate before redoing the request
-			newToken, err := c.damriService.Authenticate()
-			if err != nil {
-				log.Printf("damriService.Authenticate(): %s\n", err.Error())
-				continue
-			}
-			c.config.Token = newToken
-			coordinates, err = c.damriService.GetBusCoordinates(imeiList)
-			if err != nil {
-				log.Printf("damriService.GetBusCoordinates(): %s\n", err.Error())
-				continue
-			}
-		}
-
-		for imei := range coordinates {
+		// Optionally, enrich with bus info (color, id, etc)
+		buses, err := c.busService.GetAllBuses(ctx)
+		if err == nil {
 			for _, bus := range buses {
-				if bus.Imei != coordinates[imei].Imei {
-					continue
+				if bc, ok := coordinates[bus.Imei]; ok {
+					bc.Color = bus.Color
+					bc.Id = bus.Id
 				}
-				coordinates[imei].Color = bus.Color
-				coordinates[imei].Id = bus.Id
 			}
 		}
 
 		c.insertFetchedData(coordinates)
+		log.Printf("Inserted %d bus coordinates", len(coordinates))
 
 		err = c.possiblyChangeBusLane()
 		if err != nil {
