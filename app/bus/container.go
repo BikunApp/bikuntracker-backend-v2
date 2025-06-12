@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"log"
+	"math"
 	"net/http"
 	"time"
 
@@ -30,6 +31,7 @@ type container struct {
 	busService     interfaces.BusService
 	busCoordinates map[string]*models.BusCoordinate
 	storedBuses    map[string]*dqStore
+	halteHistory   map[string][]string // imei -> halte name history
 }
 
 func NewContainer(
@@ -45,6 +47,7 @@ func NewContainer(
 		busService:     busService,
 		busCoordinates: make(map[string]*models.BusCoordinate),
 		storedBuses:    make(map[string]*dqStore),
+		halteHistory:   make(map[string][]string),
 	}
 }
 
@@ -60,78 +63,20 @@ func (c *container) GetBusCoordinatesMap() map[string]*models.BusCoordinate {
 	return c.busCoordinates
 }
 
-// func (c *container) RunCron() {
-// 	for {
-// 		time.Sleep(time.Millisecond * 5500)
-
-// 		ctx := context.Background()
-// 		buses, err := c.busService.GetAllBuses(ctx)
-// 		if err != nil {
-// 			log.Printf("damriService.GetAllBusStatus(): %s\n", err.Error())
-// 			continue
-// 		}
-
-// 		imeiList := make([]string, 0)
-// 		for _, busStatus := range buses {
-// 			imeiList = append(imeiList, busStatus.Imei)
-// 		}
-
-// 		coordinates, err := c.damriService.GetBusCoordinates(imeiList)
-// 		if err != nil {
-// 			// If this fails, we try to authenticate before redoing the request
-// 			newToken, err := c.damriService.Authenticate()
-// 			if err != nil {
-// 				log.Printf("damriService.Authenticate(): %s\n", err.Error())
-// 				continue
-// 			}
-// 			c.config.Token = newToken
-// 			coordinates, err = c.damriService.GetBusCoordinates(imeiList)
-// 			if err != nil {
-// 				log.Printf("damriService.GetBusCoordinates(): %s\n", err.Error())
-// 				continue
-// 			}
-// 		}
-
-// 		for imei := range coordinates {
-// 			for _, bus := range buses {
-// 				if bus.Imei != coordinates[imei].Imei {
-// 					continue
-// 				}
-// 				coordinates[imei].Color = bus.Color
-// 				coordinates[imei].Id = bus.Id
-// 			}
-// 		}
-
-// 		c.insertFetchedData(coordinates)
-
-// 		err = c.possiblyChangeBusLane()
-// 		if err != nil {
-// 			log.Printf("Unable to change bus lane: %s", err.Error())
-// 		}
-
-// 		if c.config.PrintCsvLogs {
-// 			body, err := json.Marshal(map[string]interface{}{
-// 				"coordinates": coordinates,
-// 			})
-// 			if err != nil {
-// 				log.Printf("unable to upload logs: %s", err.Error())
-// 			} else {
-// 				resp, err := http.Post("http://localhost:4040", "application/json", bytes.NewBuffer(body))
-// 				if err != nil || resp.StatusCode < 200 && resp.StatusCode >= 300 {
-// 					log.Printf("something went wrong when trying to POST logs: %s", err.Error())
-// 				}
-// 			}
-// 		}
-
-// 		c.busCoordinates = coordinates
-// 	}
-// }
-
 func (c *container) RunWebSocket() {
 	wsUrl := c.config.WsUrl
 	if wsUrl == "" {
 		log.Println("WS_URL is not set in config")
 		return
+	}
+
+	// Set all buses to grey at runtime start
+	ctx := context.Background()
+	buses, err := c.busService.GetAllBuses(ctx)
+	if err == nil {
+		for _, bus := range buses {
+			_, _ = c.busService.UpdateBusColorByImei(ctx, bus.Imei, "abu-abu")
+		}
 	}
 
 	for {
@@ -180,6 +125,40 @@ func (c *container) connectAndConsumeWS(ctx context.Context, wsUrl string) {
 				Longitude: lng,
 				Speed:     int(speed),
 			}
+
+			// Predict route from halteHistory
+			history := c.halteHistory[imei]
+			routeType := detectRouteColor(history)
+			var route []string
+			switch routeType {
+			case "blue":
+				route = blueNormal
+			case "express-blue":
+				route = blueMorning
+			case "red":
+				route = redNormal
+			case "express-red":
+				route = redMorning
+			default:
+				route = nil
+			}
+
+			currentHalte, dist := nearestHalte(lat, lng)
+			bus.CurrentHalte = ""
+			bus.NextHalte = ""
+			if currentHalte != "" && dist < 60 && route != nil {
+				bus.CurrentHalte = currentHalte
+				// Find current halte index in route
+				for i, h := range route {
+					if h == currentHalte {
+						if i+1 < len(route) {
+							bus.NextHalte = route[i+1]
+						}
+						break
+					}
+				}
+			}
+
 			coordinates[imei] = bus
 		}
 
@@ -195,7 +174,41 @@ func (c *container) connectAndConsumeWS(ctx context.Context, wsUrl string) {
 		}
 
 		c.insertFetchedData(coordinates)
-		log.Printf("Inserted %d bus coordinates", len(coordinates))
+
+		// Track halte visits and update halteHistory for each bus
+		for imei, coord := range coordinates {
+			name, dist := nearestHalte(coord.Latitude, coord.Longitude)
+			if name != "" && dist < 60 { // 60 meters threshold
+				history := c.halteHistory[imei]
+				if len(history) == 0 || history[len(history)-1] != name {
+					c.halteHistory[imei] = append(history, name)
+					log.Printf("Bus %s visited halte: %s", imei, name)
+				}
+			}
+		}
+
+		// After updating halteHistory, auto-detect and update bus color
+		for imei, history := range c.halteHistory {
+			color := detectRouteColor(history)
+			prevColor := ""
+			if c.busCoordinates[imei] != nil {
+				prevColor = c.busCoordinates[imei].Color
+			}
+			if color == "grey" && prevColor != "" && prevColor != "grey" {
+				// If ambiguous, keep previous non-grey color
+				continue
+			}
+			if c.busCoordinates[imei] != nil && c.busCoordinates[imei].Color != color {
+				c.busCoordinates[imei].Color = color
+				ctx := context.Background()
+				_, err := c.busService.UpdateBusColorByImei(ctx, imei, color)
+				if err != nil {
+					log.Printf("Failed to update bus color for %s: %v", imei, err)
+				} else {
+					log.Printf("Auto-detected and updated bus %s color to %s", imei, color)
+				}
+			}
+		}
 
 		err = c.possiblyChangeBusLane()
 		if err != nil {
@@ -289,4 +302,93 @@ func (c *container) possiblyChangeBusLane() (err error) {
 	}
 
 	return
+}
+
+// Halte metadata and route definitions
+type Halte struct {
+	Name     string
+	Lat, Lng float64
+}
+
+var halteList = []Halte{
+	{"Asrama UI", -6.348351370044594, 106.82976588606834},
+	{"Menwa", -6.353471269466313, 106.83177955448627},
+	{"Stasiun UI", -6.361052900888018, 106.83170076459645},
+	{"Fakultas Psikologi", -6.36255935735158, 106.83111906051636},
+	{"FISIP", -6.361574, 106.830172},
+	{"Fakultas Ilmu Pengetahuan Budaya", -6.361254501381427, 106.82978868484497},
+	{"Fakultas Ekonomi dan Bisnis", -6.35946048561971, 106.82582974433899},
+	{"Fakultas Teknik", -6.361043911445512, 106.82325214147568},
+	{"Vokasi", -6.366036735678631, 106.8216535449028},
+	{"SOR", -6.366915739619239, 106.82448193430899},
+	{"FMIPA", -6.369828304090281, 106.8257811293006},
+	{"Fakultas Ilmu Keperawatan", -6.371008186217929, 106.8268945813179},
+	{"Fakultas Kesehatan Masyarakat", -6.371677262480034, 106.8293622136116},
+	{"RIK", -6.36987795182555, 106.8310546875},
+	{"Balairung", -6.368212251024606, 106.83178257197142},
+	{"MUI/Perpus UI", -6.3655942342627565, 106.83204710483551},
+	{"Fakultas Hukum", -6.364901492199248, 106.83221206068993},
+}
+
+var blueNormal = []string{"Asrama UI", "Menwa", "Stasiun UI", "Fakultas Psikologi", "FISIP", "Fakultas Ilmu Pengetahuan Budaya", "Fakultas Ekonomi dan Bisnis", "Fakultas Teknik", "Vokasi", "SOR", "FMIPA", "Fakultas Ilmu Keperawatan", "Fakultas Kesehatan Masyarakat", "RIK", "Balairung", "MUI/Perpus UI", "Fakultas Hukum", "Stasiun UI (Ke Asrama)", "Menwa (Ke Asrama)"}
+var blueMorning = []string{"Asrama UI", "Menwa", "Stasiun UI", "Fakultas Psikologi", "FISIP", "Fakultas Ilmu Pengetahuan Budaya", "Fakultas Ekonomi dan Bisnis", "Fakultas Teknik", "Vokasi", "SOR", "FMIPA", "Fakultas Ilmu Keperawatan", "Fakultas Kesehatan Masyarakat", "RIK", "Balairung", "MUI/Perpus UI", "Fakultas Hukum"}
+var redNormal = []string{"Asrama UI", "Menwa", "Stasiun UI", "Fakultas Hukum", "Balairung", "RIK", "Fakultas Kesehatan Masyarakat", "Fakultas Ilmu Keperawatan", "FMIPA", "SOR", "Vokasi", "Fakultas Teknik", "Fakultas Ekonomi dan Bisnis", "Fakultas Ilmu Pengetahuan Budaya", "FISIP", "Fakultas Psikologi", "Stasiun UI (Ke Asrama)", "Menwa (Ke Asrama)"}
+var redMorning = []string{"Asrama UI", "Menwa", "Stasiun UI", "Fakultas Hukum", "Balairung", "RIK", "Fakultas Kesehatan Masyarakat", "Fakultas Ilmu Keperawatan", "FMIPA", "SOR", "Vokasi"}
+
+// nearestHalte returns the name and distance (in meters) of the closest halte to the given latitude and longitude.
+func nearestHalte(lat, lng float64) (string, float64) {
+	const earthRadius = 6371000 // meters
+	minDist := 1e9
+	closest := ""
+	for _, halte := range halteList {
+		dLat := (halte.Lat - lat) * (3.141592653589793 / 180)
+		dLng := (halte.Lng - lng) * (3.141592653589793 / 180)
+		alat := lat * (3.141592653589793 / 180)
+		blat := halte.Lat * (3.141592653589793 / 180)
+		a := (dLat/2)*(dLat/2) + (dLng/2)*(dLng/2)*cos(alat)*cos(blat)
+		c := 2 * atan2Sqrt(a, 1-a)
+		dist := earthRadius * c
+		if dist < minDist {
+			minDist = dist
+			closest = halte.Name
+		}
+	}
+	return closest, minDist
+}
+
+// Helper math functions for nearestHalte
+func cos(x float64) float64 {
+	return float64(math.Cos(float64(x)))
+}
+func atan2Sqrt(a, b float64) float64 {
+	return math.Atan2(math.Sqrt(a), math.Sqrt(b))
+}
+
+// detectRouteColor tries to determine the route color and type based on halte visit history.
+func detectRouteColor(history []string) string {
+	if len(history) < 3 {
+		return "grey" // grey if not enough halte visited
+	}
+	seq := history[len(history)-3:]
+	// Helper to check if a sequence exists in a route
+	matches := func(route []string) bool {
+		for i := 0; i <= len(route)-3; i++ {
+			if route[i] == seq[0] && route[i+1] == seq[1] && route[i+2] == seq[2] {
+				return true
+			}
+		}
+		return false
+	}
+	switch {
+	case matches(blueNormal):
+		return "blue"
+	case matches(blueMorning):
+		return "express-blue"
+	case matches(redNormal):
+		return "red"
+	case matches(redMorning):
+		return "express-red"
+	default:
+		return "grey"
+	}
 }

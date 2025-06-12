@@ -13,6 +13,8 @@ type BusCoordinate struct {
 	Speed        int       `json:"speed"`
 	TotalMileage float64   `json:"total_mileage"`
 	GpsTime      time.Time `json:"gps_time"`
+	CurrentHalte string    `json:"current_halte"`
+	NextHalte    string    `json:"next_halte"`
 }
 
 type Bus struct {
