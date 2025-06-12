@@ -366,13 +366,13 @@ func atan2Sqrt(a, b float64) float64 {
 
 // detectRouteColor tries to determine the route color and type based on halte visit history.
 func detectRouteColor(history []string) string {
-	if len(history) < 3 {
+	if len(history) < 4 {
 		return "grey" // grey if not enough halte visited
 	}
-	seq := history[len(history)-3:]
+	seq := history[len(history)-4:]
 	// Helper to check if a sequence exists in a route
 	matches := func(route []string) bool {
-		for i := 0; i <= len(route)-3; i++ {
+		for i := 0; i <= len(route)-4; i++ {
 			if route[i] == seq[0] && route[i+1] == seq[1] && route[i+2] == seq[2] {
 				return true
 			}
