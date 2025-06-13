@@ -75,7 +75,7 @@ func (c *container) RunWebSocket() {
 	buses, err := c.busService.GetAllBuses(ctx)
 	if err == nil {
 		for _, bus := range buses {
-			_, _ = c.busService.UpdateBusColorByImei(ctx, bus.Imei, "abu-abu")
+			_, _ = c.busService.UpdateBusColorByImei(ctx, bus.Imei, "grey")
 		}
 	}
 
@@ -119,12 +119,6 @@ func (c *container) connectAndConsumeWS(ctx context.Context, wsUrl string) {
 			lat, _ := d["latitude"].(float64)
 			lng, _ := d["longitude"].(float64)
 			speed, _ := d["speed"].(float64)
-			bus := &models.BusCoordinate{
-				Imei:      imei,
-				Latitude:  lat,
-				Longitude: lng,
-				Speed:     int(speed),
-			}
 
 			// Predict route from halteHistory
 			history := c.halteHistory[imei]
@@ -144,13 +138,29 @@ func (c *container) connectAndConsumeWS(ctx context.Context, wsUrl string) {
 			}
 
 			currentHalte, dist := nearestHalte(lat, lng)
-			bus.CurrentHalte = ""
-			bus.NextHalte = ""
-			if currentHalte != "" && dist < 60 && route != nil {
+			bus := &models.BusCoordinate{
+				Imei:         imei,
+				Latitude:     lat,
+				Longitude:    lng,
+				Speed:        int(speed),
+				GpsTime:      time.Now(),
+				CurrentHalte: "",
+				NextHalte:    "",
+			}
+
+			if currentHalte != "" && dist < 60 {
 				bus.CurrentHalte = currentHalte
-				// Find current halte index in route
+				bus.StatusMessage = "Arriving at " + currentHalte
+			} else if len(history) > 0 {
+				// Show previous halte with "Depart from [Halte Name]"
+				prevHalte := history[len(history)-1]
+				bus.CurrentHalte = prevHalte
+				bus.StatusMessage = "Depart from " + prevHalte
+			}
+
+			if route != nil && bus.CurrentHalte != "" {
 				for i, h := range route {
-					if h == currentHalte {
+					if h == bus.CurrentHalte {
 						if i+1 < len(route) {
 							bus.NextHalte = route[i+1]
 						}
@@ -162,7 +172,6 @@ func (c *container) connectAndConsumeWS(ctx context.Context, wsUrl string) {
 			coordinates[imei] = bus
 		}
 
-		// Optionally, enrich with bus info (color, id, etc)
 		buses, err := c.busService.GetAllBuses(ctx)
 		if err == nil {
 			for _, bus := range buses {
@@ -183,6 +192,12 @@ func (c *container) connectAndConsumeWS(ctx context.Context, wsUrl string) {
 				if len(history) == 0 || history[len(history)-1] != name {
 					c.halteHistory[imei] = append(history, name)
 					log.Printf("Bus %s visited halte: %s", imei, name)
+					// Update current halte in DB
+					ctx := context.Background()
+					_, err := c.busService.UpdateCurrentHalteByImei(ctx, imei, name)
+					if err != nil {
+						log.Printf("Failed to update current halte for %s: %v", imei, err)
+					}
 				}
 			}
 		}
