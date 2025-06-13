@@ -2,7 +2,7 @@ import asyncio
 import websockets
 import json
 
-WS_URL = "ws://localhost:8080/ws"  # Change if your backend runs on a different port
+WS_URL = "ws://indicated-method-managed-omissions.trycloudflare.com/ws"  # Change if your backend runs on a different port
 
 async def main():
     async with websockets.connect(WS_URL) as ws:
