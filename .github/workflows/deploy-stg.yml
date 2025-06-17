@@ -12,7 +12,7 @@ jobs:
     uses: RistekCSUI/infra-workflows/.github/workflows/ecr-service-build.yml@main
     with:
       SERVICES: bikun-tracker/v2/backend-stg
-      INSTANCE: Vigil
+      INSTANCE: Pusilkom
       REGISTRY: 638207107223.dkr.ecr.ap-southeast-1.amazonaws.com
       REGISTRY_IMAGE: bikun-tracker-v2-backend
       REGISTRY_USER: AWS
