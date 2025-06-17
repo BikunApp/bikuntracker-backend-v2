@@ -12,15 +12,16 @@ RUN go mod download
 COPY . .
 
 RUN go build -o exec .
+RUN go build -o migrate ./db/migrations/migrate.go
+
 
 FROM alpine:3.20
 
-RUN apk --no-cache add tzdata make go
+RUN apk --no-cache add tzdata
 
 WORKDIR /work
 
 COPY --from=builder /work/exec .
-COPY --from=builder /work/Makefile .
-COPY --from=builder /work/db/migrations ./db/migrations
+COPY --from=builder /work/migrate .
 
-CMD make migrate && ./exec
+CMD ./migrate && ./exec
