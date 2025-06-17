@@ -23,5 +23,6 @@ WORKDIR /work
 
 COPY --from=builder /work/exec .
 COPY --from=builder /work/migrate .
+COPY --from=builder /work/db/migrations ./db/migrations
 
 CMD ./migrate && ./exec
