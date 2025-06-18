@@ -31,7 +31,7 @@ type container struct {
 	busService     interfaces.BusService
 	busCoordinates map[string]*models.BusCoordinate
 	storedBuses    map[string]*dqStore
-	halteHistory   map[string][]string // imei -> halte name history
+	previousHalte  map[string]string // imei -> previous halte name
 }
 
 func NewContainer(
@@ -47,7 +47,7 @@ func NewContainer(
 		busService:     busService,
 		busCoordinates: make(map[string]*models.BusCoordinate),
 		storedBuses:    make(map[string]*dqStore),
-		halteHistory:   make(map[string][]string),
+		previousHalte:  make(map[string]string),
 	}
 }
 
@@ -120,9 +120,11 @@ func (c *container) connectAndConsumeWS(ctx context.Context, wsUrl string) {
 			lng, _ := d["longitude"].(float64)
 			speed, _ := d["speed"].(float64)
 
-			// Predict route from halteHistory
-			history := c.halteHistory[imei]
-			routeType := detectRouteColor(history)
+			currentHalte, dist := nearestHalte(lat, lng)
+			previousHalte := c.previousHalte[imei]
+
+			// Predict route from previous and current halte
+			routeType := detectRouteColorFromPair(previousHalte, currentHalte)
 			var route []string
 			switch routeType {
 			case "blue":
@@ -137,7 +139,6 @@ func (c *container) connectAndConsumeWS(ctx context.Context, wsUrl string) {
 				route = nil
 			}
 
-			currentHalte, dist := nearestHalte(lat, lng)
 			bus := &models.BusCoordinate{
 				Imei:         imei,
 				Latitude:     lat,
@@ -151,11 +152,10 @@ func (c *container) connectAndConsumeWS(ctx context.Context, wsUrl string) {
 			if currentHalte != "" && dist < 60 {
 				bus.CurrentHalte = currentHalte
 				bus.StatusMessage = "Arriving at " + currentHalte
-			} else if len(history) > 0 {
+			} else if previousHalte != "" {
 				// Show previous halte with "Depart from [Halte Name]"
-				prevHalte := history[len(history)-1]
-				bus.CurrentHalte = prevHalte
-				bus.StatusMessage = "Depart from " + prevHalte
+				bus.CurrentHalte = previousHalte
+				bus.StatusMessage = "Depart from " + previousHalte
 			}
 
 			if route != nil && bus.CurrentHalte != "" {
@@ -184,15 +184,42 @@ func (c *container) connectAndConsumeWS(ctx context.Context, wsUrl string) {
 			}
 		}
 
-		c.insertFetchedData(coordinates)
+		// auto-detect and update bus color
+		for imei, coord := range coordinates {
+			name, dist := nearestHalte(coord.Latitude, coord.Longitude)
+			if name != "" && dist < 60 {
+				previousHalte := c.previousHalte[imei]
+				color := detectRouteColorFromPair(previousHalte, name)
+				prevColor := ""
+				if c.busCoordinates[imei] != nil {
+					prevColor = c.busCoordinates[imei].Color
+				}
+				if color == "grey" && prevColor != "" && prevColor != "grey" {
+					// If ambiguous, keep previous non-grey color
+					continue
+				}
+				if c.busCoordinates[imei] != nil && c.busCoordinates[imei].Color != color {
+					c.busCoordinates[imei].Color = color
+					ctx := context.Background()
+					_, err := c.busService.UpdateBusColorByImei(ctx, imei, color)
+					if err != nil {
+						log.Printf("Failed to update bus color for %s: %v", imei, err)
+					} else {
+						log.Printf("Auto-detected and updated bus %s color to %s", imei, color)
+					}
+				}
+			}
+		}
 
-		// Track halte visits and update halteHistory for each bus
+		c.insertFetchedData(coordinates)
+		// Track halte visits and update previousHalte for each bus
 		for imei, coord := range coordinates {
 			name, dist := nearestHalte(coord.Latitude, coord.Longitude)
 			if name != "" && dist < 60 { // 60 meters threshold
-				history := c.halteHistory[imei]
-				if len(history) == 0 || history[len(history)-1] != name {
-					c.halteHistory[imei] = append(history, name)
+				currentPrevious := c.previousHalte[imei]
+				if currentPrevious != name {
+					// Update previous halte to the old current halte
+					c.previousHalte[imei] = name
 					log.Printf("Bus %s visited halte: %s", imei, name)
 					// Update current halte in DB
 					ctx := context.Background()
@@ -200,29 +227,6 @@ func (c *container) connectAndConsumeWS(ctx context.Context, wsUrl string) {
 					if err != nil {
 						log.Printf("Failed to update current halte for %s: %v", imei, err)
 					}
-				}
-			}
-		}
-
-		// After updating halteHistory, auto-detect and update bus color
-		for imei, history := range c.halteHistory {
-			color := detectRouteColor(history)
-			prevColor := ""
-			if c.busCoordinates[imei] != nil {
-				prevColor = c.busCoordinates[imei].Color
-			}
-			if color == "grey" && prevColor != "" && prevColor != "grey" {
-				// If ambiguous, keep previous non-grey color
-				continue
-			}
-			if c.busCoordinates[imei] != nil && c.busCoordinates[imei].Color != color {
-				c.busCoordinates[imei].Color = color
-				ctx := context.Background()
-				_, err := c.busService.UpdateBusColorByImei(ctx, imei, color)
-				if err != nil {
-					log.Printf("Failed to update bus color for %s: %v", imei, err)
-				} else {
-					log.Printf("Auto-detected and updated bus %s color to %s", imei, color)
 				}
 			}
 		}
@@ -352,6 +356,37 @@ var blueMorning = []string{"Asrama UI", "Menwa", "Stasiun UI", "Fakultas Psikolo
 var redNormal = []string{"Asrama UI", "Menwa", "Stasiun UI", "Fakultas Hukum", "Balairung", "RIK", "Fakultas Kesehatan Masyarakat", "Fakultas Ilmu Keperawatan", "FMIPA", "SOR", "Vokasi", "Fakultas Teknik", "Fakultas Ekonomi dan Bisnis", "Fakultas Ilmu Pengetahuan Budaya", "FISIP", "Fakultas Psikologi", "Stasiun UI", "Menwa"}
 var redMorning = []string{"Asrama UI", "Menwa", "Stasiun UI", "Fakultas Hukum", "Balairung", "RIK", "Fakultas Kesehatan Masyarakat", "Fakultas Ilmu Keperawatan", "FMIPA", "SOR", "Vokasi"}
 
+// Route sets for efficient lookup of consecutive halte pairs
+var (
+	blueNormalSet  = make(map[[2]string]bool)
+	blueMorningSet = make(map[[2]string]bool)
+	redNormalSet   = make(map[[2]string]bool)
+	redMorningSet  = make(map[[2]string]bool)
+)
+
+func init() {
+	// Build sets of consecutive pairs for each route
+	// It will be used to identify if a bus is on a specific route
+	for i := 0; i < len(blueNormal)-1; i++ {
+		blueNormalSet[[2]string{blueNormal[i], blueNormal[i+1]}] = true
+	}
+	for i := 0; i < len(blueMorning)-1; i++ {
+		blueMorningSet[[2]string{blueMorning[i], blueMorning[i+1]}] = true
+	}
+	for i := 0; i < len(redNormal)-1; i++ {
+		redNormalSet[[2]string{redNormal[i], redNormal[i+1]}] = true
+	}
+	for i := 0; i < len(redMorning)-1; i++ {
+		redMorningSet[[2]string{redMorning[i], redMorning[i+1]}] = true
+	}
+
+	// Note that they loop back to the start, so add the last to first pairs
+	blueNormalSet[[2]string{blueNormal[len(blueNormal)-1], blueNormal[0]}] = true
+	blueMorningSet[[2]string{blueMorning[len(blueMorning)-1], blueMorning[0]}] = true
+	redNormalSet[[2]string{redNormal[len(redNormal)-1], redNormal[0]}] = true
+	redMorningSet[[2]string{redMorning[len(redMorning)-1], redMorning[0]}] = true
+}
+
 // nearestHalte returns the name and distance (in meters) of the closest halte to the given latitude and longitude.
 func nearestHalte(lat, lng float64) (string, float64) {
 	const earthRadius = 6371000 // meters
@@ -381,31 +416,31 @@ func atan2Sqrt(a, b float64) float64 {
 	return math.Atan2(math.Sqrt(a), math.Sqrt(b))
 }
 
-// detectRouteColor tries to determine the route color and type based on halte visit history.
-func detectRouteColor(history []string) string {
-	if len(history) < 4 {
-		return "grey" // grey if not enough halte visited
+// detectRouteColorFromPair tries to determine the route color and type based on previous and current halte pair.
+// It only checks the previous halte and current halte pair using the predefined sets.
+func detectRouteColorFromPair(previousHalte, currentHalte string) string {
+	if previousHalte == "" || currentHalte == "" {
+		return "grey" // grey if not enough halte information
 	}
-	seq := history[len(history)-4:]
-	// Helper to check if a sequence exists in a route
-	matches := func(route []string) bool {
-		for i := 0; i <= len(route)-4; i++ {
-			if route[i] == seq[0] && route[i+1] == seq[1] && route[i+2] == seq[2] {
-				return true
-			}
-		}
-		return false
-	}
-	switch {
-	case matches(blueNormal):
+
+	haltePair := [2]string{previousHalte, currentHalte}
+
+	// Check which route sets contain this halte pair
+	inBlueNormal := blueNormalSet[haltePair]
+	inBlueMorning := blueMorningSet[haltePair]
+	inRedNormal := redNormalSet[haltePair]
+	inRedMorning := redMorningSet[haltePair]
+
+	// If the halte pair is only in blue routes, return blue
+	if (inBlueNormal || inBlueMorning) && !inRedNormal && !inRedMorning {
 		return "blue"
-	case matches(blueMorning):
-		return "express-blue"
-	case matches(redNormal):
-		return "red"
-	case matches(redMorning):
-		return "express-red"
-	default:
-		return "grey"
 	}
+
+	// If the halte pair is only in red routes, return red
+	if (inRedNormal || inRedMorning) && !inBlueNormal && !inBlueMorning {
+		return "red"
+	}
+
+	// If the halte pair exists in both blue and red routes, or in none, return grey
+	return "grey"
 }

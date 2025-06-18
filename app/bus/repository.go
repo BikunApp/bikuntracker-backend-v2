@@ -117,7 +117,11 @@ func (r *repository) UpdateBus(ctx context.Context, whereData *models.WhereData,
 		&updatedBus.CreatedAt,
 		&updatedBus.UpdatedAt,
 	); err != nil {
-		err = fmt.Errorf("unable to execute create bus SQL: %w", err)
+		if err == pgx.ErrNoRows {
+			err = fmt.Errorf("no bus found with %s = %v", whereData.FieldName, whereData.Value)
+			return
+		}
+		err = fmt.Errorf("unable to execute update bus SQL: %w", err)
 		return
 	}
 	if currentHalte.Valid {
