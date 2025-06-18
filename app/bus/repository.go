@@ -2,6 +2,7 @@ package bus
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 
 	"github.com/FreeJ1nG/bikuntracker-backend/app/dto"
@@ -22,25 +23,34 @@ func NewRepository(db *pgxpool.Pool) *repository {
 }
 
 func (r *repository) GetBuses(ctx context.Context) (res []models.Bus, err error) {
-	rows, err := r.db.Query(ctx, `SELECT * FROM bus;`)
+	rows, err := r.db.Query(ctx, `SELECT id, vehicle_no, imei, is_active, color, current_halte, next_halte, created_at, updated_at FROM bus;`)
 	if err != nil {
-		err = fmt.Errorf("Unable to execute SQL query to get buses: %w", err)
+		err = fmt.Errorf("unable to execute SQL query to get buses: %w", err)
 		return
 	}
 	res = make([]models.Bus, 0)
 	for rows.Next() {
 		var bus models.Bus
+		var currentHalte, nextHalte sql.NullString
 		if err := rows.Scan(
 			&bus.Id,
 			&bus.VehicleNo,
 			&bus.Imei,
 			&bus.IsActive,
 			&bus.Color,
+			&currentHalte,
+			&nextHalte,
 			&bus.CreatedAt,
 			&bus.UpdatedAt,
 		); err != nil {
-			err = fmt.Errorf("Unable to scan SQL result: %w", err)
+			err = fmt.Errorf("unable to scan SQL result: %w", err)
 			return res, err
+		}
+		if currentHalte.Valid {
+			bus.CurrentHalte = currentHalte.String
+		}
+		if nextHalte.Valid {
+			bus.NextHalte = nextHalte.String
 		}
 		res = append(res, bus)
 	}
@@ -51,9 +61,7 @@ func (r *repository) GetBuses(ctx context.Context) (res []models.Bus, err error)
 func (r *repository) CreateBus(ctx context.Context, data dto.CreateBusRequestBody) (res *models.Bus, err error) {
 	row := r.db.QueryRow(
 		ctx,
-		`INSERT INTO bus (imei, vehicle_no, is_active, color)
-    VALUES ($1, $2, $3, $4)
-    RETURNING *;`,
+		`INSERT INTO bus (imei, vehicle_no, is_active, color) VALUES ($1, $2, $3, $4) RETURNING id, vehicle_no, imei, is_active, color, current_halte, next_halte, created_at, updated_at;`,
 		data.Imei,
 		data.VehicleNo,
 		data.IsActive,
@@ -61,49 +69,67 @@ func (r *repository) CreateBus(ctx context.Context, data dto.CreateBusRequestBod
 	)
 
 	var createdBus models.Bus
+	var currentHalte, nextHalte sql.NullString
 	if err = row.Scan(
 		&createdBus.Id,
 		&createdBus.VehicleNo,
 		&createdBus.Imei,
 		&createdBus.IsActive,
 		&createdBus.Color,
+		&currentHalte,
+		&nextHalte,
 		&createdBus.CreatedAt,
 		&createdBus.UpdatedAt,
 	); err != nil {
 		err = fmt.Errorf("unable to execute create bus SQL: %w", err)
 		return
 	}
-
+	if currentHalte.Valid {
+		createdBus.CurrentHalte = currentHalte.String
+	}
+	if nextHalte.Valid {
+		createdBus.NextHalte = nextHalte.String
+	}
 	res = &createdBus
 	return
 }
 
 func (r *repository) UpdateBus(ctx context.Context, whereData *models.WhereData, data dto.UpdateBusRequestBody) (res *models.Bus, err error) {
-	sql, params, err := utils.GetPartialUpdateSQL("bus", data, whereData)
+	sqlStr, params, err := utils.GetPartialUpdateSQL("bus", data, whereData)
 	if err != nil {
 		return
 	}
-
 	row := r.db.QueryRow(
 		ctx,
-		sql+" RETURNING *",
+		sqlStr+" RETURNING id, vehicle_no, imei, is_active, color, current_halte, next_halte, created_at, updated_at",
 		params...,
 	)
-
 	var updatedBus models.Bus
+	var currentHalte, nextHalte sql.NullString
 	if err = row.Scan(
 		&updatedBus.Id,
 		&updatedBus.VehicleNo,
 		&updatedBus.Imei,
 		&updatedBus.IsActive,
 		&updatedBus.Color,
+		&currentHalte,
+		&nextHalte,
 		&updatedBus.CreatedAt,
 		&updatedBus.UpdatedAt,
 	); err != nil {
-		err = fmt.Errorf("unable to execute create bus SQL: %w", err)
+		if err == pgx.ErrNoRows {
+			err = fmt.Errorf("no bus found with %s = %v", whereData.FieldName, whereData.Value)
+			return
+		}
+		err = fmt.Errorf("unable to execute update bus SQL: %w", err)
 		return
 	}
-
+	if currentHalte.Valid {
+		updatedBus.CurrentHalte = currentHalte.String
+	}
+	if nextHalte.Valid {
+		updatedBus.NextHalte = nextHalte.String
+	}
 	res = &updatedBus
 	return
 }
@@ -120,7 +146,7 @@ func (r *repository) InsertBuses(ctx context.Context, data []models.Bus) (err er
 	}
 	err = r.db.SendBatch(ctx, batch).Close()
 	if err != nil {
-		err = fmt.Errorf("Unable to batch insert buses: %w", err)
+		err = fmt.Errorf("unable to batch insert buses: %w", err)
 		return
 	}
 	return

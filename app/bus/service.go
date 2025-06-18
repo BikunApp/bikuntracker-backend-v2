@@ -31,6 +31,19 @@ func (s *service) UpdateBusColorByImei(ctx context.Context, imei string, newColo
 	)
 }
 
+func (s *service) UpdateCurrentHalteByImei(ctx context.Context, imei string, newHalte string) (*models.Bus, error) {
+	return s.repo.UpdateBus(
+		ctx,
+		&models.WhereData{
+			FieldName: "imei",
+			Value:     imei,
+		},
+		dto.UpdateBusRequestBody{
+			CurrentHalte: &newHalte,
+		},
+	)
+}
+
 func (s *service) GetAllBuses(ctx context.Context) ([]models.Bus, error) {
 	return s.repo.GetBuses(ctx)
 }

@@ -1,16 +1,11 @@
 package damri
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
-	"net/http"
 	"time"
 
-	"github.com/FreeJ1nG/bikuntracker-backend/app/dto"
 	"github.com/FreeJ1nG/bikuntracker-backend/app/interfaces"
 	"github.com/FreeJ1nG/bikuntracker-backend/app/models"
-	"github.com/FreeJ1nG/bikuntracker-backend/utils"
 )
 
 const (
@@ -31,75 +26,36 @@ func NewService(config *models.Config, util interfaces.DamriUtil) *service {
 	}
 }
 
+// Authenticate provides a dummy implementation for interface compatibility (not used with ws)
 func (s *service) Authenticate() (token string, err error) {
-	authData, err := json.Marshal(dto.DamriAuthRequestBody{
-		Username: s.config.DamriLoginUsername,
-		Password: s.config.DamriLoginPassword,
-	})
-	if err != nil {
-		err = fmt.Errorf("unable to marshal damri auth credentials: %w", err)
-		return
-	}
-
-	resp, err := http.Post(s.config.DamriApi+"/auth", "application/json", bytes.NewBuffer(authData))
-	if err != nil {
-		err = fmt.Errorf("something went wrong when doing POST to Damri API: %w", err)
-		return
-	}
-
-	body, err := utils.ParseResponseBody[dto.DamriAuthResponse](resp)
-	if err != nil {
-		return
-	}
-
-	token = body.Data.Token
-	return
+	return "", nil
 }
 
-func (s *service) GetBusCoordinates(imeiList []string) (res map[string]*models.BusCoordinate, err error) {
-	body, err := json.Marshal(dto.DamriGetCoordinatesRequestBody{
-		Imei: imeiList,
-	})
-	if err != nil {
-		err = fmt.Errorf("unable to marshal imeiList: %w", err)
-		return
+// GetOperationalStatus returns the operational status based on the latest bus data timestamp from the WebSocket.
+func (s *service) GetOperationalStatus(busCoordinates map[string]*models.BusCoordinate) (int, error) {
+	if len(busCoordinates) == 0 {
+		return NOT_OPERATIONAL, nil
 	}
 
-	request, err := http.NewRequest("POST", s.config.DamriApi+"/tg_coordinate", bytes.NewBuffer(body))
-	if err != nil {
-		err = fmt.Errorf("unable to create request: %w", err)
-		return
+	// Find the most recent GpsTime or fallback to requestedDate if available
+	var latestTime time.Time
+	for _, coord := range busCoordinates {
+		if !coord.GpsTime.IsZero() && coord.GpsTime.After(latestTime) {
+			latestTime = coord.GpsTime
+		}
+	}
+	if latestTime.IsZero() {
+		// If GpsTime is not set, fallback to current time
+		latestTime = time.Now()
 	}
 
-	request.Header.Set("Authorization", "Bearer "+s.config.Token)
-	request.Header.Set("Content-Type", "application/json")
-	resp, err := http.DefaultClient.Do(request)
-	if err != nil {
-		err = fmt.Errorf("unable to execute HTTP request to fetch bus coordinates: %w", err)
-		return
-	}
-
-	respBody, err := utils.ParseResponseBody[dto.DamriGetCoordinatesResponse](resp)
-	if err != nil {
-		return
-	}
-
-	res = make(map[string]*models.BusCoordinate)
-	for _, data := range respBody.Data {
-		res[data.Imei] = &data
-	}
-
-	return
-}
-
-func (s *service) GetOperationalStatus() (int, error) {
 	loc, err := time.LoadLocation("Asia/Jakarta")
 	if err != nil {
 		err = fmt.Errorf("unable to load Asia/Jakarta location")
 		return NOT_OPERATIONAL, err
 	}
 
-	now := time.Now().In(loc)
+	now := latestTime.In(loc)
 	dayOfWeek := int(now.Weekday())
 	currentTime := now.Hour()*60 + now.Minute()
 
@@ -125,4 +81,9 @@ func (s *service) GetOperationalStatus() (int, error) {
 
 	// Sunday means that Bikun is not operational
 	return NOT_OPERATIONAL, nil
+}
+
+func (s *service) GetBusCoordinates(imeiList []string) (res map[string]*models.BusCoordinate, err error) {
+	// Dummy implementation for interface compatibility (not used with ws)
+	return nil, nil
 }

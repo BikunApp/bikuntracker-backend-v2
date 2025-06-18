@@ -39,7 +39,7 @@ func main() {
 	damriService := damri.NewService(config, damriUtil)
 	busContainer := bus.NewContainer(config, rmService, damriService, busService)
 
-	go busContainer.RunCron()
+	go busContainer.RunWebSocket()
 
 	authUtil := auth.NewUtil(config)
 	authRepo := auth.NewRepository(pool)
@@ -88,7 +88,7 @@ func main() {
 			for {
 				coordinates := busContainer.GetBusCoordinates()
 
-				operationalStatus, err := damriService.GetOperationalStatus()
+				operationalStatus, err := damriService.GetOperationalStatus(busContainer.GetBusCoordinatesMap())
 				if err != nil {
 					reason = fmt.Sprintf("damriService.GetOperationalStatus(): %s", err.Error())
 					log.Println(reason)

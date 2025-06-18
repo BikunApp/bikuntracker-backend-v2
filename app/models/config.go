@@ -3,10 +3,6 @@ package models
 import "fmt"
 
 type Config struct {
-	DamriApi           string `mapstructure:"DAMRI_API"`
-	DamriLoginUsername string `mapstructure:"DAMRI_LOGIN_USERNAME"`
-	DamriLoginPassword string `mapstructure:"DAMRI_LOGIN_PASSWORD"`
-
 	RMApi string `mapstructure:"RM_API"`
 
 	Port         string `mapstructure:"PORT"`
@@ -19,6 +15,7 @@ type Config struct {
 	DBPort     string `mapstructure:"DB_PORT"`
 
 	WsUpgradeWhitelist string `mapstructure:"WS_UPGRADE_WHITELIST"`
+	WsUrl              string `mapstructure:"WS_URL"`
 
 	JwtExpiryInDays        int    `mapstructure:"JWT_EXPIRY_IN_DAYS"`
 	JwtRefreshExpiryInDays int    `mapstructure:"JWT_REFRESH_EXPIRY_IN_DAYS"`

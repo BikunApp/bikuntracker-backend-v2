@@ -1,62 +1,68 @@
 [
   {
-    "vehicle_no": "2/B7524TK",
-    "imei": "19000230233",
+    "vehicle_no": "6075-CAM",
+    "imei": "88000004172",
     "is_active": true,
-    "color": "biru"
+    "color": "grey"
   },
   {
-    "vehicle_no": "3/B7523TK",
-    "imei": "19000230542",
+    "vehicle_no": "6074 - CAM",
+    "imei": "88000004136",
     "is_active": true,
-    "color": "merah"
+    "color": "grey"
   },
   {
-    "vehicle_no": "4/B7532TK",
-    "imei": "19000230533",
+    "vehicle_no": "6077-CAM",
+    "imei": "88000004195",
     "is_active": true,
-    "color": "biru"
+    "color": "grey"
   },
   {
-    "vehicle_no": "5/B7529TK",
-    "imei": "19000200452",
+    "vehicle_no": "6062-CAM",
+    "imei": "88000004137",
     "is_active": true,
-    "color": "merah"
+    "color": "grey"
   },
   {
-    "vehicle_no": "6/B7528TK",
-    "imei": "19000230231",
+    "vehicle_no": "6076 - CAM",
+    "imei": "88000004281",
     "is_active": true,
-    "color": "biru"
+    "color": "grey"
   },
   {
-    "vehicle_no": "7/B7531TK",
-    "imei": "19000230006",
+    "vehicle_no": "6069 - CAM",
+    "imei": "88000004277",
     "is_active": true,
-    "color": "merah"
+    "color": "grey"
   },
   {
-    "vehicle_no": "8/B7411TK",
-    "imei": "19000230459",
+    "vehicle_no": "6073 - CAM",
+    "imei": "88000004282",
     "is_active": true,
-    "color": "biru"
+    "color": "grey"
   },
   {
-    "vehicle_no": "9/B7522TK",
-    "imei": "19000230507",
+    "vehicle_no": "6066 - CAM",
+    "imei": "88000004129",
     "is_active": true,
-    "color": "merah"
+    "color": "grey"
   },
   {
-    "vehicle_no": "10/B7527TK",
-    "imei": "19000230537",
+    "vehicle_no": "6072 - CAM",
+    "imei": "88000004142",
     "is_active": true,
-    "color": "biru"
+    "color": "grey"
   },
   {
-    "vehicle_no": "11/B7525TK",
-    "imei": "19000200676",
+    "vehicle_no": "6064 - CAM",
+    "imei": "88000004276",
     "is_active": true,
-    "color": "merah"
+    "color": "grey"
+  },
+  {
+    "vehicle_no": "6071 - CAM",
+    "imei": "88000004274",
+    "is_active": true,
+    "color": "grey"
   }
 ]
