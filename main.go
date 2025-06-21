@@ -105,7 +105,7 @@ func main() {
 				}
 
 				c.Write(r.Context(), websocket.MessageText, message)
-				time.Sleep(time.Second * 3)
+				time.Sleep(time.Second * 1)
 			}
 		}),
 		nil,
