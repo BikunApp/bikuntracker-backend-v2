@@ -31,13 +31,14 @@ func main() {
 
 	busRepo := bus.NewRepository(pool)
 	busService := bus.NewService(busRepo)
-	busHandler := bus.NewHandler(busRepo, busService)
 
 	rmService := rm.NewService(config)
 
 	damriUtil := damri.NewUtil()
 	damriService := damri.NewService(config, damriUtil)
 	busContainer := bus.NewContainer(config, rmService, damriService, busService)
+
+	busHandler := bus.NewHandler(busRepo, busService, busContainer)
 
 	go busContainer.RunWebSocket()
 

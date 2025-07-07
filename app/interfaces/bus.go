@@ -9,6 +9,7 @@ import (
 
 type BusContainer interface {
 	RunCron() (err error)
+	UpdateRuntimeBusColor(imei string, newColor string) error
 }
 
 type BusService interface {

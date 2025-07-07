@@ -17,14 +17,16 @@ import (
 )
 
 type handler struct {
-	repo    interfaces.BusRepository
-	service interfaces.BusService
+	repo      interfaces.BusRepository
+	service   interfaces.BusService
+	container interfaces.BusContainer
 }
 
-func NewHandler(repo interfaces.BusRepository, service interfaces.BusService) *handler {
+func NewHandler(repo interfaces.BusRepository, service interfaces.BusService, container interfaces.BusContainer) *handler {
 	return &handler{
-		repo:    repo,
-		service: service,
+		repo:      repo,
+		service:   service,
+		container: container,
 	}
 }
 
@@ -74,10 +76,20 @@ func (h *handler) UpdateBus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// First update the database
 	res, err := h.repo.UpdateBus(ctx, &models.WhereData{FieldName: "id", Value: id}, body)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
+	}
+
+	// If color is being updated, also update the runtime bus coordinates
+	if body.Color != nil {
+		err = h.container.UpdateRuntimeBusColor(res.Imei, *body.Color)
+		if err != nil {
+			log.Printf("Failed to update runtime bus color for IMEI %s: %v", res.Imei, err)
+			// Don't fail the request if runtime update fails, just log it
+		}
 	}
 
 	utils.EncodeSuccessResponse[models.Bus](w, *res)

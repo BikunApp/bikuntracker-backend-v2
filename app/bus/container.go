@@ -1,6 +1,9 @@
 package bus
 
 import (
+	"fmt"
+	"log"
+
 	"github.com/FreeJ1nG/bikuntracker-backend/app/interfaces"
 	"github.com/FreeJ1nG/bikuntracker-backend/app/models"
 	"github.com/gammazero/deque"
@@ -54,4 +57,17 @@ func (c *container) GetBusCoordinates() (res []models.BusCoordinate) {
 
 func (c *container) GetBusCoordinatesMap() map[string]*models.BusCoordinate {
 	return c.busCoordinates
+}
+
+func (c *container) UpdateRuntimeBusColor(imei string, newColor string) error {
+	if busCoordinate, exists := c.busCoordinates[imei]; exists {
+		busCoordinate.Color = newColor
+		log.Printf("Updated runtime bus color for IMEI %s to %s", imei, newColor)
+		return nil
+	}
+	return fmt.Errorf("bus with IMEI %s not found in runtime coordinates", imei)
+}
+
+func (c *container) RunCron() (err error) {
+	return nil
 }
