@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/FreeJ1nG/bikuntracker-backend/app/dto"
 	"github.com/FreeJ1nG/bikuntracker-backend/app/models"
 	"github.com/coder/websocket"
 )
@@ -19,13 +20,32 @@ func (c *container) RunWebSocket() {
 		return
 	}
 
+	log.Printf("🚀 STARTING LAP TRACKING SYSTEM - WebSocket URL: %s", wsUrl)
+
 	ctx := context.Background()
 	buses, err := c.busService.GetAllBuses(ctx)
 	if err == nil {
+		log.Printf("📋 Found %d buses in database", len(buses))
 		for _, bus := range buses {
 			_, _ = c.busService.UpdateBusColorByImei(ctx, bus.Imei, "grey")
+
+			// Initialize active lap status
+			activeLap, _ := c.busService.GetActiveLap(ctx, bus.Imei)
+			c.activeLaps[bus.Imei] = activeLap != nil
+			if activeLap != nil {
+				log.Printf("🔄 Found active lap for bus %s: lap %d", bus.Imei, activeLap.LapNumber)
+			} else {
+				log.Printf("⭕ No active lap for bus %s", bus.Imei)
+			}
 		}
+	} else {
+		log.Printf("❌ Failed to get buses: %v", err)
 	}
+
+	log.Printf("🎯 LAP DETECTION RULES:")
+	log.Printf("   📍 Lap Start: Asrama UI → Menwa")
+	log.Printf("   🏁 Lap End: → Parking OR → Asrama UI (from other halte)")
+	log.Printf("   📏 Distance threshold: 60 meters")
 
 	for {
 		ctx := context.Background()
@@ -50,6 +70,16 @@ func (c *container) connectAndConsumeWS(ctx context.Context, wsUrl string) {
 			return
 		}
 		coordinates := c.parseWSData(data)
+
+		// Log GPS data reception
+		if len(coordinates) > 0 {
+			log.Printf("📡 Received GPS data for %d buses", len(coordinates))
+			for imei, coord := range coordinates {
+				log.Printf("   🚌 Bus %s: [%.6f,%.6f] speed=%d color=%s",
+					imei, coord.Latitude, coord.Longitude, coord.Speed, coord.Color)
+			}
+		}
+
 		c.updateBusColors(coordinates)
 		c.insertFetchedData(coordinates)
 		c.updateHalteVisits(ctx, coordinates)
@@ -169,9 +199,57 @@ func (c *container) updateHalteVisits(ctx context.Context, coordinates map[strin
 		if name != "" && dist < 60 {
 			currentPrevious := c.previousHalte[imei]
 			if currentPrevious != name {
+				// Log halte switch with detailed info
+				log.Printf("🚌 HALTE SWITCH - Bus %s: %s → %s (distance: %.1fm)",
+					imei, currentPrevious, name, dist)
+				log.Printf("🔍 LAP CHECK - Bus %s: Previous=%s, Current=%s, ActiveLap=%t, Color=%s",
+					imei, currentPrevious, name, c.activeLaps[imei], coord.Color)
+
+				// Check for lap start: transition from "Asrama UI" to "Menwa"
+				if currentPrevious == "Asrama UI" && name == "Menwa" {
+					log.Printf("🚀 LAP START CONDITION MET - Bus %s: Asrama UI → Menwa", imei)
+
+					// Only start a new lap if no active lap exists
+					if !c.activeLaps[imei] {
+						routeColor := coord.Color
+						if routeColor == "" {
+							routeColor = "grey"
+						}
+
+						log.Printf("🎯 STARTING NEW LAP - Bus %s with color %s", imei, routeColor)
+
+						lapHistory, err := c.busService.StartLap(ctx, imei, routeColor)
+						if err != nil {
+							log.Printf("❌ FAILED to start lap for bus %s: %v", imei, err)
+						} else {
+							c.activeLaps[imei] = true
+							log.Printf("✅ STARTED LAP %d for bus %s (color: %s)", lapHistory.LapNumber, imei, routeColor)
+							c.pushLapEvent(ctx, imei, "lap_start", lapHistory)
+						}
+					} else {
+						log.Printf("⚠️ LAP START SKIPPED - Bus %s already has active lap", imei)
+					}
+				}
+
+				// Check for lap end: reaching "Parking" or returning to "Asrama UI" (if coming from elsewhere)
+				if c.activeLaps[imei] && (name == "Parking" || (name == "Asrama UI" && currentPrevious != "Menwa")) {
+					log.Printf("🏁 LAP END CONDITION MET - Bus %s reached %s (from %s)", imei, name, currentPrevious)
+
+					lapHistory, err := c.busService.EndLap(ctx, imei)
+					if err != nil {
+						log.Printf("❌ FAILED to end lap for bus %s: %v", imei, err)
+					} else if lapHistory != nil {
+						c.activeLaps[imei] = false
+						log.Printf("✅ ENDED LAP %d for bus %s", lapHistory.LapNumber, imei)
+						c.pushLapEvent(ctx, imei, "lap_end", lapHistory)
+					}
+				}
+
+				// Now update the previous halte AFTER checking lap conditions
 				c.previousHalte[imei] = name
-				log.Printf("Bus %s visited halte: %s", imei, name)
-				ctx := context.Background()
+				log.Printf("🚌 BUS HALTE VISIT - Bus %s visited halte: %s (from %s) [GPS: %.6f,%.6f, dist: %.1fm]",
+					imei, name, currentPrevious, coord.Latitude, coord.Longitude, dist)
+
 				_, err := c.busService.UpdateCurrentHalteByImei(ctx, imei, name)
 				if err != nil {
 					log.Printf("Failed to update current halte for %s: %v", imei, err)
@@ -193,6 +271,45 @@ func (c *container) logCsvIfNeeded(coordinates map[string]*models.BusCoordinate)
 			if err != nil || resp.StatusCode < 200 && resp.StatusCode >= 300 {
 				log.Printf("something went wrong when trying to POST logs: %s", err.Error())
 			}
+		}
+	}
+}
+
+func (c *container) pushLapEvent(ctx context.Context, imei string, eventType string, lapHistory *models.BusLapHistory) {
+	// Create lap event data using DTO structure
+	eventData := dto.LapEventData{
+		EventType:  eventType,
+		IMEI:       imei,
+		LapID:      lapHistory.ID,
+		LapNumber:  lapHistory.LapNumber,
+		RouteColor: lapHistory.RouteColor,
+		StartTime:  lapHistory.StartTime,
+		Timestamp:  time.Now(),
+	}
+
+	if lapHistory.EndTime != nil {
+		eventData.EndTime = lapHistory.EndTime
+		duration := lapHistory.EndTime.Sub(lapHistory.StartTime).Seconds()
+		eventData.Duration = &duration
+	}
+
+	// Convert to JSON for logging/pushing
+	eventJSON, err := json.Marshal(eventData)
+	if err != nil {
+		log.Printf("Failed to marshal lap event data: %v", err)
+		return
+	}
+
+	log.Printf("Lap event: %s", string(eventJSON))
+
+	// Here you can add additional logic to push data to external systems
+	// For example, HTTP POST to an external API, WebSocket broadcast, etc.
+	if c.config.PrintCsvLogs {
+		resp, err := http.Post("http://localhost:4040/lap-events", "application/json", bytes.NewBuffer(eventJSON))
+		if err != nil {
+			log.Printf("Failed to push lap event: %v", err)
+		} else if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+			log.Printf("Successfully pushed %s event for bus %s", eventType, imei)
 		}
 	}
 }

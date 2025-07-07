@@ -31,7 +31,7 @@ func main() {
 
 	busRepo := bus.NewRepository(pool)
 	busService := bus.NewService(busRepo)
-	busHandler := bus.NewHandler(busRepo)
+	busHandler := bus.NewHandler(busRepo, busService)
 
 	rmService := rm.NewService(config)
 
@@ -62,6 +62,14 @@ func main() {
 			adminApiKeyProtectorMiddleware,
 		},
 	})
+
+	// Lap history routes
+	utils.HandleRoute("/bus/lap-history", utils.MethodHandler{http.MethodGet: busHandler.GetFilteredLapHistory}, nil)
+	utils.HandleRoute("/bus/:imei/lap-history", utils.MethodHandler{http.MethodGet: busHandler.GetLapHistory}, nil)
+	utils.HandleRoute("/bus/:imei/active-lap", utils.MethodHandler{http.MethodGet: busHandler.GetActiveLap}, nil)
+	// Debug route - remove in production
+	utils.HandleRoute("/bus/test-lap-data", utils.MethodHandler{http.MethodPost: busHandler.CreateTestLapData}, nil)
+	utils.HandleRoute("/bus/check-table", utils.MethodHandler{http.MethodGet: busHandler.CheckLapHistoryTable}, nil)
 
 	utils.HandleRoute("/auth/sso/login", utils.MethodHandler{http.MethodPost: authHandler.SsoLogin}, nil)
 	utils.HandleRoute("/auth/refresh", utils.MethodHandler{http.MethodPost: authHandler.RefreshJwt}, nil)
