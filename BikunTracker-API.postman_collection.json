@@ -1,0 +1,321 @@
+{
+  "info": {
+    "name": "BikunTracker Backend API",
+    "description": "Complete API collection for BikunTracker Backend V2",
+    "version": "2.0.0",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{jwt_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "admin_api_key",
+      "value": "your_admin_api_key",
+      "type": "string"
+    },
+    {
+      "key": "jwt_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "refresh_token",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "SSO Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ticket\": \"ST-12345-abcdef\",\n  \"service\": \"https://bikuntracker.ui.ac.id\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/sso/login",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "sso", "login"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Refresh Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh\": \"{{refresh_token}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/refresh",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "refresh"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Current User",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/me",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "me"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Bus Management",
+      "item": [
+        {
+          "name": "Get All Buses",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/bus",
+              "host": ["{{base_url}}"],
+              "path": ["bus"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Bus",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-API-Key",
+                "value": "{{admin_api_key}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vehicle_no\": \"UI-001\",\n  \"imei\": \"123456789012345\",\n  \"is_active\": true,\n  \"color\": \"blue\",\n  \"current_halte\": \"Asrama UI\",\n  \"next_halte\": \"Menwa\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/bus",
+              "host": ["{{base_url}}"],
+              "path": ["bus"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Bus",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-API-Key",
+                "value": "{{admin_api_key}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vehicle_no\": \"UI-001-Updated\",\n  \"is_active\": false,\n  \"color\": \"red\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/bus/1",
+              "host": ["{{base_url}}"],
+              "path": ["bus", "1"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Bus",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "X-API-Key",
+                "value": "{{admin_api_key}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/bus/1",
+              "host": ["{{base_url}}"],
+              "path": ["bus", "1"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Lap Tracking",
+      "item": [
+        {
+          "name": "Get Filtered Lap History",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/bus/lap-history?page=1&limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["bus", "lap-history"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "imei",
+                  "value": "123456789012345",
+                  "disabled": true
+                },
+                {
+                  "key": "route_color",
+                  "value": "blue",
+                  "disabled": true
+                },
+                {
+                  "key": "from_date",
+                  "value": "2024-01-01T00:00:00Z",
+                  "disabled": true
+                },
+                {
+                  "key": "to_date",
+                  "value": "2024-01-31T23:59:59Z",
+                  "disabled": true
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Bus Lap History",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/bus/123456789012345/lap-history?page=1&limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["bus", "123456789012345", "lap-history"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Active Lap",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/bus/123456789012345/active-lap",
+              "host": ["{{base_url}}"],
+              "path": ["bus", "123456789012345", "active-lap"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Debug (Development Only)",
+      "item": [
+        {
+          "name": "Create Test Lap Data",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"imei\": \"123456789012345\",\n  \"route_color\": \"blue\",\n  \"count\": 5\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/bus/test-lap-data",
+              "host": ["{{base_url}}"],
+              "path": ["bus", "test-lap-data"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Check Lap History Table",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/bus/check-table",
+              "host": ["{{base_url}}"],
+              "path": ["bus", "check-table"]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

@@ -209,30 +209,36 @@ func (c *container) updateHalteVisits(ctx context.Context, coordinates map[strin
 				if currentPrevious == "Asrama UI" && name == "Menwa" {
 					log.Printf("🚀 LAP START CONDITION MET - Bus %s: Asrama UI → Menwa", imei)
 
-					// Only start a new lap if no active lap exists
-					if !c.activeLaps[imei] {
-						routeColor := coord.Color
-						if routeColor == "" {
-							routeColor = "grey"
-						}
+					routeColor := coord.Color
+					if routeColor == "" {
+						routeColor = "grey"
+					}
 
-						log.Printf("🎯 STARTING NEW LAP - Bus %s with color %s", imei, routeColor)
-
-						lapHistory, err := c.busService.StartLap(ctx, imei, routeColor)
+					// End existing lap if one is active before starting new one
+					if c.activeLaps[imei] {
+						log.Printf("⚠️ OVERRIDING ACTIVE LAP - Bus %s ending previous lap to start new one", imei)
+						_, err := c.busService.EndLap(ctx, imei)
 						if err != nil {
-							log.Printf("❌ FAILED to start lap for bus %s: %v", imei, err)
+							log.Printf("❌ FAILED to end previous lap for bus %s: %v", imei, err)
 						} else {
-							c.activeLaps[imei] = true
-							log.Printf("✅ STARTED LAP %d for bus %s (color: %s)", lapHistory.LapNumber, imei, routeColor)
-							c.pushLapEvent(ctx, imei, "lap_start", lapHistory)
+							log.Printf("✅ ENDED previous lap for bus %s", imei)
 						}
+					}
+
+					log.Printf("🎯 STARTING NEW LAP - Bus %s with color %s", imei, routeColor)
+
+					lapHistory, err := c.busService.StartLap(ctx, imei, routeColor)
+					if err != nil {
+						log.Printf("❌ FAILED to start lap for bus %s: %v", imei, err)
 					} else {
-						log.Printf("⚠️ LAP START SKIPPED - Bus %s already has active lap", imei)
+						c.activeLaps[imei] = true
+						log.Printf("✅ STARTED LAP %d for bus %s (color: %s)", lapHistory.LapNumber, imei, routeColor)
+						c.pushLapEvent(ctx, imei, "lap_start", lapHistory)
 					}
 				}
 
 				// Check for lap end: reaching "Parking" or returning to "Asrama UI" (if coming from elsewhere)
-				if c.activeLaps[imei] && (name == "Parking" || (name == "Asrama UI" && currentPrevious != "Menwa")) {
+				if c.activeLaps[imei] && (name == "Parking" || (name == "Asrama UI" && currentPrevious == "Menwa")) {
 					log.Printf("🏁 LAP END CONDITION MET - Bus %s reached %s (from %s)", imei, name, currentPrevious)
 
 					lapHistory, err := c.busService.EndLap(ctx, imei)
