@@ -20,12 +20,12 @@ func (c *container) RunWebSocket() {
 		return
 	}
 
-	log.Printf("🚀 STARTING LAP TRACKING SYSTEM - WebSocket URL: %s", wsUrl)
+	log.Printf("Starting lap tracking system - WebSocket URL: %s", wsUrl)
 
 	ctx := context.Background()
 	buses, err := c.busService.GetAllBuses(ctx)
 	if err == nil {
-		log.Printf("📋 Found %d buses in database", len(buses))
+		log.Printf("Found %d buses in database", len(buses))
 		for _, bus := range buses {
 			_, _ = c.busService.UpdateBusColorByImei(ctx, bus.Imei, "grey")
 
@@ -33,19 +33,14 @@ func (c *container) RunWebSocket() {
 			activeLap, _ := c.busService.GetActiveLap(ctx, bus.Imei)
 			c.activeLaps[bus.Imei] = activeLap != nil
 			if activeLap != nil {
-				log.Printf("🔄 Found active lap for bus %s: lap %d", bus.Imei, activeLap.LapNumber)
-			} else {
-				log.Printf("⭕ No active lap for bus %s", bus.Imei)
+				log.Printf("Found active lap for bus %s: lap %d", bus.Imei, activeLap.LapNumber)
 			}
 		}
 	} else {
-		log.Printf("❌ Failed to get buses: %v", err)
+		log.Printf("Failed to get buses: %v", err)
 	}
 
-	log.Printf("🎯 LAP DETECTION RULES:")
-	log.Printf("   📍 Lap Start: Asrama UI → Menwa")
-	log.Printf("   🏁 Lap End: → Parking OR → Asrama UI (from other halte)")
-	log.Printf("   📏 Distance threshold: 60 meters")
+	log.Printf("Lap detection rules - Start: Asrama UI → Menwa, End: → Parking OR → Asrama UI")
 
 	for {
 		ctx := context.Background()
@@ -70,15 +65,6 @@ func (c *container) connectAndConsumeWS(ctx context.Context, wsUrl string) {
 			return
 		}
 		coordinates := c.parseWSData(data)
-
-		// Log GPS data reception
-		if len(coordinates) > 0 {
-			log.Printf("📡 Received GPS data for %d buses", len(coordinates))
-			for imei, coord := range coordinates {
-				log.Printf("   🚌 Bus %s: [%.6f,%.6f] speed=%d color=%s",
-					imei, coord.Latitude, coord.Longitude, coord.Speed, coord.Color)
-			}
-		}
 
 		c.updateBusColors(coordinates)
 		c.insertFetchedData(coordinates)
@@ -199,15 +185,11 @@ func (c *container) updateHalteVisits(ctx context.Context, coordinates map[strin
 		if name != "" && dist < 60 {
 			currentPrevious := c.previousHalte[imei]
 			if currentPrevious != name {
-				// Log halte switch with detailed info
-				log.Printf("🚌 HALTE SWITCH - Bus %s: %s → %s (distance: %.1fm)",
-					imei, currentPrevious, name, dist)
-				log.Printf("🔍 LAP CHECK - Bus %s: Previous=%s, Current=%s, ActiveLap=%t, Color=%s",
-					imei, currentPrevious, name, c.activeLaps[imei], coord.Color)
+				log.Printf("Bus %s halte switch: %s → %s (%.1fm)", imei, currentPrevious, name, dist)
 
 				// Check for lap start: transition from "Asrama UI" to "Menwa"
 				if currentPrevious == "Asrama UI" && name == "Menwa" {
-					log.Printf("🚀 LAP START CONDITION MET - Bus %s: Asrama UI → Menwa", imei)
+					log.Printf("Lap start condition met - Bus %s: Asrama UI → Menwa", imei)
 
 					routeColor := coord.Color
 					if routeColor == "" {
@@ -216,45 +198,39 @@ func (c *container) updateHalteVisits(ctx context.Context, coordinates map[strin
 
 					// End existing lap if one is active before starting new one
 					if c.activeLaps[imei] {
-						log.Printf("⚠️ OVERRIDING ACTIVE LAP - Bus %s ending previous lap to start new one", imei)
+						log.Printf("Ending previous lap for bus %s to start new one", imei)
 						_, err := c.busService.EndLap(ctx, imei)
 						if err != nil {
-							log.Printf("❌ FAILED to end previous lap for bus %s: %v", imei, err)
-						} else {
-							log.Printf("✅ ENDED previous lap for bus %s", imei)
+							log.Printf("Failed to end previous lap for bus %s: %v", imei, err)
 						}
 					}
 
-					log.Printf("🎯 STARTING NEW LAP - Bus %s with color %s", imei, routeColor)
-
 					lapHistory, err := c.busService.StartLap(ctx, imei, routeColor)
 					if err != nil {
-						log.Printf("❌ FAILED to start lap for bus %s: %v", imei, err)
+						log.Printf("Failed to start lap for bus %s: %v", imei, err)
 					} else {
 						c.activeLaps[imei] = true
-						log.Printf("✅ STARTED LAP %d for bus %s (color: %s)", lapHistory.LapNumber, imei, routeColor)
+						log.Printf("Started lap %d for bus %s (color: %s)", lapHistory.LapNumber, imei, routeColor)
 						c.pushLapEvent(ctx, imei, "lap_start", lapHistory)
 					}
 				}
 
 				// Check for lap end: reaching "Parking" or returning to "Asrama UI" (if coming from elsewhere)
 				if c.activeLaps[imei] && (name == "Parking" || (name == "Asrama UI" && currentPrevious == "Menwa")) {
-					log.Printf("🏁 LAP END CONDITION MET - Bus %s reached %s (from %s)", imei, name, currentPrevious)
+					log.Printf("Lap end condition met - Bus %s reached %s from %s", imei, name, currentPrevious)
 
 					lapHistory, err := c.busService.EndLap(ctx, imei)
 					if err != nil {
-						log.Printf("❌ FAILED to end lap for bus %s: %v", imei, err)
+						log.Printf("Failed to end lap for bus %s: %v", imei, err)
 					} else if lapHistory != nil {
 						c.activeLaps[imei] = false
-						log.Printf("✅ ENDED LAP %d for bus %s", lapHistory.LapNumber, imei)
+						log.Printf("Ended lap %d for bus %s", lapHistory.LapNumber, imei)
 						c.pushLapEvent(ctx, imei, "lap_end", lapHistory)
 					}
 				}
 
 				// Now update the previous halte AFTER checking lap conditions
 				c.previousHalte[imei] = name
-				log.Printf("🚌 BUS HALTE VISIT - Bus %s visited halte: %s (from %s) [GPS: %.6f,%.6f, dist: %.1fm]",
-					imei, name, currentPrevious, coord.Latitude, coord.Longitude, dist)
 
 				_, err := c.busService.UpdateCurrentHalteByImei(ctx, imei, name)
 				if err != nil {

@@ -229,10 +229,11 @@ func (r *repository) UpdateLapHistory(ctx context.Context, id int, endTime inter
 func (r *repository) GetActiveLapByImei(ctx context.Context, imei string) (*models.BusLapHistory, error) {
 	row := r.db.QueryRow(
 		ctx,
-		`SELECT id, bus_id, imei, lap_number, start_time, end_time, route_color, created_at, updated_at 
-		 FROM bus_lap_history 
-		 WHERE imei = $1 AND end_time IS NULL 
-		 ORDER BY start_time DESC 
+		`SELECT blh.id, blh.bus_id, blh.imei, b.vehicle_no, blh.lap_number, blh.start_time, blh.end_time, blh.route_color, blh.created_at, blh.updated_at 
+		 FROM bus_lap_history blh
+		 JOIN buses b ON blh.bus_id = b.id
+		 WHERE blh.imei = $1 AND blh.end_time IS NULL 
+		 ORDER BY blh.start_time DESC 
 		 LIMIT 1`,
 		imei,
 	)
@@ -243,6 +244,7 @@ func (r *repository) GetActiveLapByImei(ctx context.Context, imei string) (*mode
 		&lap.ID,
 		&lap.BusID,
 		&lap.IMEI,
+		&lap.VehicleNo,
 		&lap.LapNumber,
 		&lap.StartTime,
 		&endTime,
@@ -267,10 +269,11 @@ func (r *repository) GetActiveLapByImei(ctx context.Context, imei string) (*mode
 func (r *repository) GetLapHistoryByImei(ctx context.Context, imei string) ([]models.BusLapHistory, error) {
 	rows, err := r.db.Query(
 		ctx,
-		`SELECT id, bus_id, imei, lap_number, start_time, end_time, route_color, created_at, updated_at 
-		 FROM bus_lap_history 
-		 WHERE imei = $1 
-		 ORDER BY start_time DESC`,
+		`SELECT blh.id, blh.bus_id, blh.imei, b.vehicle_no, blh.lap_number, blh.start_time, blh.end_time, blh.route_color, blh.created_at, blh.updated_at 
+		 FROM bus_lap_history blh
+		 JOIN buses b ON blh.bus_id = b.id
+		 WHERE blh.imei = $1 
+		 ORDER BY blh.start_time DESC`,
 		imei,
 	)
 	if err != nil {
@@ -289,6 +292,7 @@ func (r *repository) GetLapHistoryByImei(ctx context.Context, imei string) ([]mo
 			&lap.ID,
 			&lap.BusID,
 			&lap.IMEI,
+			&lap.VehicleNo,
 			&lap.LapNumber,
 			&lap.StartTime,
 			&endTime,
@@ -311,9 +315,9 @@ func (r *repository) GetLapHistoryByImei(ctx context.Context, imei string) ([]mo
 }
 
 func (r *repository) GetFilteredLapHistory(ctx context.Context, filter dto.LapHistoryFilter) ([]models.BusLapHistory, error) {
-	query := `SELECT blh.id, blh.bus_id, blh.imei, blh.lap_number, blh.start_time, blh.end_time, blh.route_color, blh.created_at, blh.updated_at 
+	query := `SELECT blh.id, blh.bus_id, blh.imei, b.vehicle_no, blh.lap_number, blh.start_time, blh.end_time, blh.route_color, blh.created_at, blh.updated_at 
 			  FROM bus_lap_history blh 
-			  JOIN bus b ON blh.bus_id = b.id 
+			  JOIN buses b ON blh.bus_id = b.id 
 			  WHERE 1=1`
 
 	var args []interface{}

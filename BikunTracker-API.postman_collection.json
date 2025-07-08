@@ -35,6 +35,16 @@
       "key": "refresh_token",
       "value": "",
       "type": "string"
+    },
+    {
+      "key": "test_imei",
+      "value": "123456789012345",
+      "type": "string"
+    },
+    {
+      "key": "test_vehicle_no",
+      "value": "UI-001",
+      "type": "string"
     }
   ],
   "item": [
@@ -137,7 +147,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"vehicle_no\": \"UI-001\",\n  \"imei\": \"123456789012345\",\n  \"is_active\": true,\n  \"color\": \"blue\",\n  \"current_halte\": \"Asrama UI\",\n  \"next_halte\": \"Menwa\"\n}"
+              "raw": "{\n  \"vehicle_no\": \"{{test_vehicle_no}}\",\n  \"imei\": \"{{test_imei}}\",\n  \"is_active\": true,\n  \"color\": \"blue\",\n  \"current_halte\": \"Asrama UI\",\n  \"next_halte\": \"Menwa\"\n}"
             },
             "url": {
               "raw": "{{base_url}}/bus",
@@ -163,7 +173,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"vehicle_no\": \"UI-001-Updated\",\n  \"is_active\": false,\n  \"color\": \"red\"\n}"
+              "raw": "{\n  \"vehicle_no\": \"{{test_vehicle_no}}-Updated\",\n  \"is_active\": false,\n  \"color\": \"red\"\n}"
             },
             "url": {
               "raw": "{{base_url}}/bus/1",
@@ -220,6 +230,11 @@
                   "disabled": true
                 },
                 {
+                  "key": "vehicle_no",
+                  "value": "UI-001",
+                  "disabled": true
+                },
+                {
                   "key": "route_color",
                   "value": "blue",
                   "disabled": true
@@ -245,9 +260,9 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/bus/123456789012345/lap-history?page=1&limit=10",
+              "raw": "{{base_url}}/bus/{{test_imei}}/lap-history?page=1&limit=10&vehicle_no={{test_vehicle_no}}",
               "host": ["{{base_url}}"],
-              "path": ["bus", "123456789012345", "lap-history"],
+              "path": ["bus", "{{test_imei}}", "lap-history"],
               "query": [
                 {
                   "key": "page",
@@ -256,6 +271,11 @@
                 {
                   "key": "limit",
                   "value": "10"
+                },
+                {
+                  "key": "vehicle_no",
+                  "value": "UI-001",
+                  "disabled": true
                 }
               ]
             }
@@ -268,9 +288,16 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/bus/123456789012345/active-lap",
+              "raw": "{{base_url}}/bus/123456789012345/active-lap?vehicle_no=UI-001",
               "host": ["{{base_url}}"],
-              "path": ["bus", "123456789012345", "active-lap"]
+              "path": ["bus", "123456789012345", "active-lap"],
+              "query": [
+                {
+                  "key": "vehicle_no",
+                  "value": "UI-001",
+                  "disabled": true
+                }
+              ]
             }
           },
           "response": []
@@ -292,7 +319,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"imei\": \"123456789012345\",\n  \"route_color\": \"blue\",\n  \"count\": 5\n}"
+              "raw": "{\n  \"imei\": \"123456789012345\",\n  \"vehicle_no\": \"UI-001\",\n  \"route_color\": \"blue\",\n  \"count\": 5\n}"
             },
             "url": {
               "raw": "{{base_url}}/bus/test-lap-data",
