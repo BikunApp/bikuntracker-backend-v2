@@ -2,6 +2,7 @@ package bus
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/FreeJ1nG/bikuntracker-backend/app/dto"
@@ -66,7 +67,7 @@ func (s *service) StartLap(ctx context.Context, imei string, routeColor string) 
 	}
 
 	if busID == 0 {
-		return nil, err
+		return nil, errors.New("no bus found with the given IMEI")
 	}
 
 	// Get current lap number by checking existing laps
