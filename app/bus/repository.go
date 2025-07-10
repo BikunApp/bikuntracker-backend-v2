@@ -243,7 +243,6 @@ func (r *repository) GetActiveLapByImei(ctx context.Context, imei string) (*mode
 		&lap.ID,
 		&lap.BusID,
 		&lap.IMEI,
-		&lap.VehicleNo,
 		&lap.LapNumber,
 		&lap.StartTime,
 		&endTime,
