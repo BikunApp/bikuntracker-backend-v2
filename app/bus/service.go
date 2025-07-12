@@ -117,8 +117,22 @@ func (s *service) EndLap(ctx context.Context, imei string) (*models.BusLapHistor
 		return nil, nil // No active lap to end
 	}
 
+	// Get the current bus to fetch its latest color
+	buses, err := s.repo.GetBuses(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	var currentBusColor string = "grey" // Default fallback color
+	for _, bus := range buses {
+		if bus.Imei == imei {
+			currentBusColor = bus.Color
+			break
+		}
+	}
+
 	endTime := time.Now()
-	result, err := s.repo.UpdateLapHistory(ctx, activeLap.ID, endTime)
+	result, err := s.repo.UpdateLapHistoryWithColor(ctx, activeLap.ID, endTime, currentBusColor)
 	if err != nil {
 		return nil, err
 	}

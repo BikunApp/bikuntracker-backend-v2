@@ -33,6 +33,7 @@ type BusRepository interface {
 	// Lap history methods
 	CreateLapHistory(ctx context.Context, lapHistory *models.BusLapHistory) (*models.BusLapHistory, error)
 	UpdateLapHistory(ctx context.Context, id int, endTime interface{}) (*models.BusLapHistory, error)
+	UpdateLapHistoryWithColor(ctx context.Context, id int, endTime interface{}, routeColor string) (*models.BusLapHistory, error)
 	GetActiveLapByImei(ctx context.Context, imei string) (*models.BusLapHistory, error)
 	GetLapHistoryByImei(ctx context.Context, imei string) ([]models.BusLapHistory, error)
 	GetFilteredLapHistory(ctx context.Context, filter dto.LapHistoryFilter) ([]models.BusLapHistory, error)

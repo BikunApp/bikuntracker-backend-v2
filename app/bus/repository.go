@@ -226,6 +226,41 @@ func (r *repository) UpdateLapHistory(ctx context.Context, id int, endTime inter
 	return &updated, nil
 }
 
+func (r *repository) UpdateLapHistoryWithColor(ctx context.Context, id int, endTime interface{}, routeColor string) (*models.BusLapHistory, error) {
+	row := r.db.QueryRow(
+		ctx,
+		`UPDATE bus_lap_history SET end_time = $1, route_color = $2, updated_at = now() 
+		 WHERE id = $3 
+		 RETURNING id, bus_id, imei, lap_number, start_time, end_time, route_color, created_at, updated_at`,
+		endTime,
+		routeColor,
+		id,
+	)
+
+	var updated models.BusLapHistory
+	var endTimeNull sql.NullTime
+	err := row.Scan(
+		&updated.ID,
+		&updated.BusID,
+		&updated.IMEI,
+		&updated.LapNumber,
+		&updated.StartTime,
+		&endTimeNull,
+		&updated.RouteColor,
+		&updated.CreatedAt,
+		&updated.UpdatedAt,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("unable to update lap history with color: %w", err)
+	}
+
+	if endTimeNull.Valid {
+		updated.EndTime = &endTimeNull.Time
+	}
+
+	return &updated, nil
+}
+
 func (r *repository) GetActiveLapByImei(ctx context.Context, imei string) (*models.BusLapHistory, error) {
 	row := r.db.QueryRow(
 		ctx,
