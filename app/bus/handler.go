@@ -257,25 +257,16 @@ func (h *handler) GetFilteredLapHistory(w http.ResponseWriter, r *http.Request) 
 func (h *handler) CreateTestLapData(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
 
-	// Create some test lap history data
-	now := time.Now()
-	testLap := &models.BusLapHistory{
-		BusID:      1,
-		IMEI:       "123456789",
-		LapNumber:  1,
-		StartTime:  now.Add(-2 * time.Hour),
-		RouteColor: "blue",
-	}
-
-	res, err := h.repo.CreateLapHistory(ctx, testLap)
+	// Create some test lap history data using service layer
+	res, err := h.service.StartLap(ctx, "123456789", "blue")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	// End the lap
-	endTime := now.Add(-1 * time.Hour)
-	res, err = h.repo.UpdateLapHistory(ctx, res.ID, endTime)
+	// End the lap after some time
+	time.Sleep(100 * time.Millisecond) // Small delay to simulate lap duration
+	res, err = h.service.EndLap(ctx, "123456789")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -333,6 +324,12 @@ func (h *handler) parseLapHistoryFilter(r *http.Request) (dto.LapHistoryFilter, 
 		if err != nil {
 			return filter, err
 		}
+		// Convert to Jakarta timezone
+		jakartaLoc, err := time.LoadLocation("Asia/Jakarta")
+		if err != nil {
+			return filter, fmt.Errorf("failed to load Jakarta timezone: %w", err)
+		}
+		fromDate = time.Date(fromDate.Year(), fromDate.Month(), fromDate.Day(), 0, 0, 0, 0, jakartaLoc)
 		filter.FromDate = &fromDate
 	}
 
@@ -342,8 +339,12 @@ func (h *handler) parseLapHistoryFilter(r *http.Request) (dto.LapHistoryFilter, 
 		if err != nil {
 			return filter, err
 		}
-		// Set to end of day
-		toDate = toDate.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
+		// Convert to Jakarta timezone and set to end of day
+		jakartaLoc, err := time.LoadLocation("Asia/Jakarta")
+		if err != nil {
+			return filter, fmt.Errorf("failed to load Jakarta timezone: %w", err)
+		}
+		toDate = time.Date(toDate.Year(), toDate.Month(), toDate.Day(), 23, 59, 59, 999999999, jakartaLoc)
 		filter.ToDate = &toDate
 	}
 

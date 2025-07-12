@@ -20,6 +20,20 @@ func NewService(repo interfaces.BusRepository) *service {
 	}
 }
 
+// Helper function to convert lap history time fields to UTC
+func (s *service) convertLapHistoryToUTC(lap *models.BusLapHistory) {
+	if lap == nil {
+		return
+	}
+	lap.StartTime = lap.StartTime.UTC()
+	if lap.EndTime != nil {
+		utcEndTime := lap.EndTime.UTC()
+		lap.EndTime = &utcEndTime
+	}
+	lap.CreatedAt = lap.CreatedAt.UTC()
+	lap.UpdatedAt = lap.UpdatedAt.UTC()
+}
+
 func (s *service) UpdateBusColorByImei(ctx context.Context, imei string, newColor string) (*models.Bus, error) {
 	return s.repo.UpdateBus(
 		ctx,
@@ -82,7 +96,15 @@ func (s *service) StartLap(ctx context.Context, imei string, routeColor string) 
 		RouteColor: routeColor,
 	}
 
-	return s.repo.CreateLapHistory(ctx, lapHistory)
+	result, err := s.repo.CreateLapHistory(ctx, lapHistory)
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert all time fields to UTC (Zulu time)
+	s.convertLapHistoryToUTC(result)
+
+	return result, nil
 }
 
 func (s *service) EndLap(ctx context.Context, imei string) (*models.BusLapHistory, error) {
@@ -96,15 +118,41 @@ func (s *service) EndLap(ctx context.Context, imei string) (*models.BusLapHistor
 	}
 
 	endTime := time.Now()
-	return s.repo.UpdateLapHistory(ctx, activeLap.ID, endTime)
+	result, err := s.repo.UpdateLapHistory(ctx, activeLap.ID, endTime)
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert all time fields to UTC (Zulu time)
+	s.convertLapHistoryToUTC(result)
+
+	return result, nil
 }
 
 func (s *service) GetActiveLap(ctx context.Context, imei string) (*models.BusLapHistory, error) {
-	return s.repo.GetActiveLapByImei(ctx, imei)
+	lap, err := s.repo.GetActiveLapByImei(ctx, imei)
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert all time fields to UTC (Zulu time)
+	s.convertLapHistoryToUTC(lap)
+
+	return lap, nil
 }
 
 func (s *service) GetFilteredLapHistory(ctx context.Context, filter dto.LapHistoryFilter) ([]models.BusLapHistory, error) {
-	return s.repo.GetFilteredLapHistory(ctx, filter)
+	laps, err := s.repo.GetFilteredLapHistory(ctx, filter)
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert all time fields to UTC (Zulu time)
+	for i := range laps {
+		s.convertLapHistoryToUTC(&laps[i])
+	}
+
+	return laps, nil
 }
 
 func (s *service) GetFilteredLapHistoryCount(ctx context.Context, filter dto.LapHistoryFilter) (int, error) {
