@@ -187,6 +187,16 @@ func (c *container) updateHalteVisits(ctx context.Context, coordinates map[strin
 			if currentPrevious != name {
 				log.Printf("Bus %s halte switch: %s → %s (%.1fm)", imei, currentPrevious, name, dist)
 
+				// Track halte visit for active lap (before checking lap start/end conditions)
+				if c.activeLaps[imei] {
+					err := c.busService.AddHalteVisitToActiveLap(ctx, imei, name)
+					if err != nil {
+						log.Printf("Failed to add halte visit to active lap for bus %s: %v", imei, err)
+					} else {
+						log.Printf("Added halte visit '%s' to active lap for bus %s", name, imei)
+					}
+				}
+
 				// Check for lap start: transition from "Asrama UI" to "Menwa"
 				if currentPrevious == "Asrama UI" && name == "Menwa" {
 					log.Printf("Lap start condition met - Bus %s: Asrama UI → Menwa", imei)
@@ -260,13 +270,14 @@ func (c *container) logCsvIfNeeded(coordinates map[string]*models.BusCoordinate)
 func (c *container) pushLapEvent(ctx context.Context, imei string, eventType string, lapHistory *models.BusLapHistory) {
 	// Create lap event data using DTO structure
 	eventData := dto.LapEventData{
-		EventType:  eventType,
-		IMEI:       imei,
-		LapID:      lapHistory.ID,
-		LapNumber:  lapHistory.LapNumber,
-		RouteColor: lapHistory.RouteColor,
-		StartTime:  lapHistory.StartTime,
-		Timestamp:  time.Now(),
+		EventType:         eventType,
+		IMEI:              imei,
+		LapID:             lapHistory.ID,
+		LapNumber:         lapHistory.LapNumber,
+		RouteColor:        lapHistory.RouteColor,
+		HalteVisitHistory: lapHistory.HalteVisitHistory,
+		StartTime:         lapHistory.StartTime,
+		Timestamp:         time.Now(),
 	}
 
 	if lapHistory.EndTime != nil {

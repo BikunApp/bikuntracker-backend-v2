@@ -3,6 +3,7 @@ package bus
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/FreeJ1nG/bikuntracker-backend/app/dto"
@@ -88,12 +89,16 @@ func (s *service) StartLap(ctx context.Context, imei string, routeColor string) 
 	existingLaps, _ := s.repo.GetLapHistoryByImei(ctx, imei)
 	lapNumber := len(existingLaps) + 1
 
+	// Initialize halte visit history with starting point
+	initialHalteHistory := "Asrama UI"
+
 	lapHistory := &models.BusLapHistory{
-		BusID:      busID,
-		IMEI:       imei,
-		LapNumber:  lapNumber,
-		StartTime:  time.Now(),
-		RouteColor: routeColor,
+		BusID:             busID,
+		IMEI:              imei,
+		LapNumber:         lapNumber,
+		StartTime:         time.Now(),
+		RouteColor:        routeColor,
+		HalteVisitHistory: initialHalteHistory,
 	}
 
 	result, err := s.repo.CreateLapHistory(ctx, lapHistory)
@@ -171,4 +176,34 @@ func (s *service) GetFilteredLapHistory(ctx context.Context, filter dto.LapHisto
 
 func (s *service) GetFilteredLapHistoryCount(ctx context.Context, filter dto.LapHistoryFilter) (int, error) {
 	return s.repo.GetFilteredLapHistoryCount(ctx, filter)
+}
+
+func (s *service) AddHalteVisitToActiveLap(ctx context.Context, imei string, halteName string) error {
+	// Get the active lap for this bus
+	activeLap, err := s.repo.GetActiveLapByImei(ctx, imei)
+	if err != nil {
+		return err
+	}
+
+	if activeLap == nil {
+		// No active lap, nothing to update
+		return nil
+	}
+
+	// Build the new halte visit history
+	var newHalteHistory string
+	if activeLap.HalteVisitHistory == "" {
+		newHalteHistory = halteName
+	} else {
+		// Check if this halte is already the last one to avoid duplicates
+		existingHaltes := strings.Split(activeLap.HalteVisitHistory, " -> ")
+		if len(existingHaltes) > 0 && existingHaltes[len(existingHaltes)-1] == halteName {
+			// Same halte as last, don't add duplicate
+			return nil
+		}
+		newHalteHistory = activeLap.HalteVisitHistory + " -> " + halteName
+	}
+
+	// Update the halte visit history
+	return s.repo.UpdateLapHistoryHalteVisits(ctx, activeLap.ID, newHalteHistory)
 }

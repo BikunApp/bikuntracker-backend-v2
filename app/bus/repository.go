@@ -158,18 +158,20 @@ func (r *repository) InsertBuses(ctx context.Context, data []models.Bus) (err er
 func (r *repository) CreateLapHistory(ctx context.Context, lapHistory *models.BusLapHistory) (*models.BusLapHistory, error) {
 	row := r.db.QueryRow(
 		ctx,
-		`INSERT INTO bus_lap_history (bus_id, imei, lap_number, start_time, route_color) 
-		 VALUES ($1, $2, $3, $4, $5) 
-		 RETURNING id, bus_id, imei, lap_number, start_time, end_time, route_color, created_at, updated_at`,
+		`INSERT INTO bus_lap_history (bus_id, imei, lap_number, start_time, route_color, halte_visit_history) 
+		 VALUES ($1, $2, $3, $4, $5, $6) 
+		 RETURNING id, bus_id, imei, lap_number, start_time, end_time, route_color, halte_visit_history, created_at, updated_at`,
 		lapHistory.BusID,
 		lapHistory.IMEI,
 		lapHistory.LapNumber,
 		lapHistory.StartTime,
 		lapHistory.RouteColor,
+		lapHistory.HalteVisitHistory,
 	)
 
 	var created models.BusLapHistory
 	var endTime sql.NullTime
+	var halteVisitHistory sql.NullString
 	err := row.Scan(
 		&created.ID,
 		&created.BusID,
@@ -178,6 +180,7 @@ func (r *repository) CreateLapHistory(ctx context.Context, lapHistory *models.Bu
 		&created.StartTime,
 		&endTime,
 		&created.RouteColor,
+		&halteVisitHistory,
 		&created.CreatedAt,
 		&created.UpdatedAt,
 	)
@@ -189,6 +192,10 @@ func (r *repository) CreateLapHistory(ctx context.Context, lapHistory *models.Bu
 		created.EndTime = &endTime.Time
 	}
 
+	if halteVisitHistory.Valid {
+		created.HalteVisitHistory = halteVisitHistory.String
+	}
+
 	return &created, nil
 }
 
@@ -197,13 +204,14 @@ func (r *repository) UpdateLapHistory(ctx context.Context, id int, endTime inter
 		ctx,
 		`UPDATE bus_lap_history SET end_time = $1, updated_at = now() 
 		 WHERE id = $2 
-		 RETURNING id, bus_id, imei, lap_number, start_time, end_time, route_color, created_at, updated_at`,
+		 RETURNING id, bus_id, imei, lap_number, start_time, end_time, route_color, halte_visit_history, created_at, updated_at`,
 		endTime,
 		id,
 	)
 
 	var updated models.BusLapHistory
 	var endTimeNull sql.NullTime
+	var halteVisitHistory sql.NullString
 	err := row.Scan(
 		&updated.ID,
 		&updated.BusID,
@@ -212,6 +220,7 @@ func (r *repository) UpdateLapHistory(ctx context.Context, id int, endTime inter
 		&updated.StartTime,
 		&endTimeNull,
 		&updated.RouteColor,
+		&halteVisitHistory,
 		&updated.CreatedAt,
 		&updated.UpdatedAt,
 	)
@@ -223,6 +232,10 @@ func (r *repository) UpdateLapHistory(ctx context.Context, id int, endTime inter
 		updated.EndTime = &endTimeNull.Time
 	}
 
+	if halteVisitHistory.Valid {
+		updated.HalteVisitHistory = halteVisitHistory.String
+	}
+
 	return &updated, nil
 }
 
@@ -231,7 +244,7 @@ func (r *repository) UpdateLapHistoryWithColor(ctx context.Context, id int, endT
 		ctx,
 		`UPDATE bus_lap_history SET end_time = $1, route_color = $2, updated_at = now() 
 		 WHERE id = $3 
-		 RETURNING id, bus_id, imei, lap_number, start_time, end_time, route_color, created_at, updated_at`,
+		 RETURNING id, bus_id, imei, lap_number, start_time, end_time, route_color, halte_visit_history, created_at, updated_at`,
 		endTime,
 		routeColor,
 		id,
@@ -239,6 +252,7 @@ func (r *repository) UpdateLapHistoryWithColor(ctx context.Context, id int, endT
 
 	var updated models.BusLapHistory
 	var endTimeNull sql.NullTime
+	var halteVisitHistory sql.NullString
 	err := row.Scan(
 		&updated.ID,
 		&updated.BusID,
@@ -247,6 +261,7 @@ func (r *repository) UpdateLapHistoryWithColor(ctx context.Context, id int, endT
 		&updated.StartTime,
 		&endTimeNull,
 		&updated.RouteColor,
+		&halteVisitHistory,
 		&updated.CreatedAt,
 		&updated.UpdatedAt,
 	)
@@ -258,13 +273,31 @@ func (r *repository) UpdateLapHistoryWithColor(ctx context.Context, id int, endT
 		updated.EndTime = &endTimeNull.Time
 	}
 
+	if halteVisitHistory.Valid {
+		updated.HalteVisitHistory = halteVisitHistory.String
+	}
+
 	return &updated, nil
+}
+
+func (r *repository) UpdateLapHistoryHalteVisits(ctx context.Context, id int, halteVisitHistory string) error {
+	_, err := r.db.Exec(
+		ctx,
+		`UPDATE bus_lap_history SET halte_visit_history = $1, updated_at = now() 
+		 WHERE id = $2`,
+		halteVisitHistory,
+		id,
+	)
+	if err != nil {
+		return fmt.Errorf("unable to update lap history halte visits: %w", err)
+	}
+	return nil
 }
 
 func (r *repository) GetActiveLapByImei(ctx context.Context, imei string) (*models.BusLapHistory, error) {
 	row := r.db.QueryRow(
 		ctx,
-		`SELECT id, bus_id, imei, lap_number, start_time, end_time, route_color, created_at, updated_at 
+		`SELECT id, bus_id, imei, lap_number, start_time, end_time, route_color, halte_visit_history, created_at, updated_at 
 		 FROM bus_lap_history 
 		 WHERE imei = $1 AND end_time IS NULL 
 		 ORDER BY start_time DESC 
@@ -274,6 +307,7 @@ func (r *repository) GetActiveLapByImei(ctx context.Context, imei string) (*mode
 
 	var lap models.BusLapHistory
 	var endTime sql.NullTime
+	var halteVisitHistory sql.NullString
 	err := row.Scan(
 		&lap.ID,
 		&lap.BusID,
@@ -282,6 +316,7 @@ func (r *repository) GetActiveLapByImei(ctx context.Context, imei string) (*mode
 		&lap.StartTime,
 		&endTime,
 		&lap.RouteColor,
+		&halteVisitHistory,
 		&lap.CreatedAt,
 		&lap.UpdatedAt,
 	)
@@ -296,13 +331,17 @@ func (r *repository) GetActiveLapByImei(ctx context.Context, imei string) (*mode
 		lap.EndTime = &endTime.Time
 	}
 
+	if halteVisitHistory.Valid {
+		lap.HalteVisitHistory = halteVisitHistory.String
+	}
+
 	return &lap, nil
 }
 
 func (r *repository) GetLapHistoryByImei(ctx context.Context, imei string) ([]models.BusLapHistory, error) {
 	rows, err := r.db.Query(
 		ctx,
-		`SELECT id, bus_id, imei, lap_number, start_time, end_time, route_color, created_at, updated_at 
+		`SELECT id, bus_id, imei, lap_number, start_time, end_time, route_color, halte_visit_history, created_at, updated_at 
 		 FROM bus_lap_history 
 		 WHERE imei = $1 
 		 ORDER BY start_time DESC`,
@@ -320,6 +359,7 @@ func (r *repository) GetLapHistoryByImei(ctx context.Context, imei string) ([]mo
 	for rows.Next() {
 		var lap models.BusLapHistory
 		var endTime sql.NullTime
+		var halteVisitHistory sql.NullString
 		err := rows.Scan(
 			&lap.ID,
 			&lap.BusID,
@@ -328,6 +368,7 @@ func (r *repository) GetLapHistoryByImei(ctx context.Context, imei string) ([]mo
 			&lap.StartTime,
 			&endTime,
 			&lap.RouteColor,
+			&halteVisitHistory,
 			&lap.CreatedAt,
 			&lap.UpdatedAt,
 		)
@@ -339,6 +380,10 @@ func (r *repository) GetLapHistoryByImei(ctx context.Context, imei string) ([]mo
 			lap.EndTime = &endTime.Time
 		}
 
+		if halteVisitHistory.Valid {
+			lap.HalteVisitHistory = halteVisitHistory.String
+		}
+
 		laps = append(laps, lap)
 	}
 
@@ -346,7 +391,7 @@ func (r *repository) GetLapHistoryByImei(ctx context.Context, imei string) ([]mo
 }
 
 func (r *repository) GetFilteredLapHistory(ctx context.Context, filter dto.LapHistoryFilter) ([]models.BusLapHistory, error) {
-	query := `SELECT blh.id, blh.bus_id, blh.imei, blh.lap_number, blh.start_time, blh.end_time, blh.route_color, blh.created_at, blh.updated_at 
+	query := `SELECT blh.id, blh.bus_id, blh.imei, blh.lap_number, blh.start_time, blh.end_time, blh.route_color, blh.halte_visit_history, blh.created_at, blh.updated_at 
 			  FROM bus_lap_history blh 
 			  JOIN bus b ON blh.bus_id = b.id 
 			  WHERE 1=1`
@@ -435,6 +480,7 @@ func (r *repository) GetFilteredLapHistory(ctx context.Context, filter dto.LapHi
 	for rows.Next() {
 		var lap models.BusLapHistory
 		var endTime sql.NullTime
+		var halteVisitHistory sql.NullString
 		err := rows.Scan(
 			&lap.ID,
 			&lap.BusID,
@@ -443,6 +489,7 @@ func (r *repository) GetFilteredLapHistory(ctx context.Context, filter dto.LapHi
 			&lap.StartTime,
 			&endTime,
 			&lap.RouteColor,
+			&halteVisitHistory,
 			&lap.CreatedAt,
 			&lap.UpdatedAt,
 		)
@@ -452,6 +499,10 @@ func (r *repository) GetFilteredLapHistory(ctx context.Context, filter dto.LapHi
 
 		if endTime.Valid {
 			lap.EndTime = &endTime.Time
+		}
+
+		if halteVisitHistory.Valid {
+			lap.HalteVisitHistory = halteVisitHistory.String
 		}
 
 		laps = append(laps, lap)
