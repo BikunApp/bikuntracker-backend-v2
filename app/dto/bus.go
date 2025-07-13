@@ -28,15 +28,16 @@ type UpdateBusRequestBody struct {
 
 // Lap tracking DTOs
 type LapEventData struct {
-	EventType  string     `json:"event_type"` // "lap_start" or "lap_end"
-	IMEI       string     `json:"imei"`
-	LapID      int        `json:"lap_id"`
-	LapNumber  int        `json:"lap_number"`
-	RouteColor string     `json:"route_color"`
-	StartTime  time.Time  `json:"start_time"`
-	EndTime    *time.Time `json:"end_time,omitempty"`
-	Duration   *float64   `json:"duration,omitempty"` // in seconds
-	Timestamp  time.Time  `json:"timestamp"`
+	EventType         string     `json:"event_type"` // "lap_start" or "lap_end"
+	IMEI              string     `json:"imei"`
+	LapID             int        `json:"lap_id"`
+	LapNumber         int        `json:"lap_number"`
+	RouteColor        string     `json:"route_color"`
+	HalteVisitHistory string     `json:"halte_visit_history,omitempty"`
+	StartTime         time.Time  `json:"start_time"`
+	EndTime           *time.Time `json:"end_time,omitempty"`
+	Duration          *float64   `json:"duration,omitempty"` // in seconds
+	Timestamp         time.Time  `json:"timestamp"`
 }
 
 // Paginated response structure

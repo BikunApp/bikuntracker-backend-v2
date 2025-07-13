@@ -20,6 +20,7 @@ type BusService interface {
 	StartLap(ctx context.Context, imei string, routeColor string) (*models.BusLapHistory, error)
 	EndLap(ctx context.Context, imei string) (*models.BusLapHistory, error)
 	GetActiveLap(ctx context.Context, imei string) (*models.BusLapHistory, error)
+	AddHalteVisitToActiveLap(ctx context.Context, imei string, halteName string) error
 	GetFilteredLapHistory(ctx context.Context, filter dto.LapHistoryFilter) ([]models.BusLapHistory, error)
 	GetFilteredLapHistoryCount(ctx context.Context, filter dto.LapHistoryFilter) (int, error)
 }
@@ -33,6 +34,8 @@ type BusRepository interface {
 	// Lap history methods
 	CreateLapHistory(ctx context.Context, lapHistory *models.BusLapHistory) (*models.BusLapHistory, error)
 	UpdateLapHistory(ctx context.Context, id int, endTime interface{}) (*models.BusLapHistory, error)
+	UpdateLapHistoryWithColor(ctx context.Context, id int, endTime interface{}, routeColor string) (*models.BusLapHistory, error)
+	UpdateLapHistoryHalteVisits(ctx context.Context, id int, halteVisitHistory string) error
 	GetActiveLapByImei(ctx context.Context, imei string) (*models.BusLapHistory, error)
 	GetLapHistoryByImei(ctx context.Context, imei string) ([]models.BusLapHistory, error)
 	GetFilteredLapHistory(ctx context.Context, filter dto.LapHistoryFilter) ([]models.BusLapHistory, error)
