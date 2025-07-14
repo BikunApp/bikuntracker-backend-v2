@@ -13,6 +13,8 @@ type CreateBusRequestBody struct {
 	Imei         string `json:"imei"`
 	IsActive     bool   `json:"is_active"`
 	Color        string `json:"color"`
+	BusNumber    string `json:"bus_number"`
+	PlateNumber  string `json:"plate_number"`
 	CurrentHalte string `json:"current_halte,omitempty"`
 	NextHalte    string `json:"next_halte,omitempty"`
 }
@@ -22,6 +24,8 @@ type UpdateBusRequestBody struct {
 	Imei         *string `json:"imei,omitempty"`
 	IsActive     *bool   `json:"is_active,omitempty"`
 	Color        *string `json:"color,omitempty"`
+	BusNumber    *string `json:"bus_number,omitempty"`
+	PlateNumber  *string `json:"plate_number,omitempty"`
 	CurrentHalte *string `json:"current_halte,omitempty"`
 	NextHalte    *string `json:"next_halte,omitempty"`
 }

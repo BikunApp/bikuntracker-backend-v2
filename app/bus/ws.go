@@ -119,7 +119,7 @@ func (c *container) parseWSData(data []byte) map[string]*models.BusCoordinate {
 			CurrentHalte: "",
 			NextHalte:    "",
 		}
-		if currentHalte != "" && dist < 60 {
+		if currentHalte != "" && dist < 45 {
 			bus.CurrentHalte = currentHalte
 			bus.StatusMessage = "Arriving at " + currentHalte
 		} else if previousHalte != "" {
@@ -155,7 +155,7 @@ func (c *container) parseWSData(data []byte) map[string]*models.BusCoordinate {
 func (c *container) updateBusColors(coordinates map[string]*models.BusCoordinate) {
 	for imei, coord := range coordinates {
 		name, dist := nearestHalte(coord.Latitude, coord.Longitude)
-		if name != "" && dist < 60 {
+		if name != "" && dist < 45 {
 			previousHalte := c.previousHalte[imei]
 			color := detectRouteColorFromPair(previousHalte, name)
 			prevColor := ""
@@ -182,7 +182,7 @@ func (c *container) updateBusColors(coordinates map[string]*models.BusCoordinate
 func (c *container) updateHalteVisits(ctx context.Context, coordinates map[string]*models.BusCoordinate) {
 	for imei, coord := range coordinates {
 		name, dist := nearestHalte(coord.Latitude, coord.Longitude)
-		if name != "" && dist < 60 {
+		if name != "" && dist < 45 {
 			currentPrevious := c.previousHalte[imei]
 			if currentPrevious != name {
 				log.Printf("Bus %s halte switch: %s → %s (%.1fm)", imei, currentPrevious, name, dist)

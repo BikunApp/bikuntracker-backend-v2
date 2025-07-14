@@ -7,6 +7,8 @@ type BusCoordinate struct {
 	Color         string    `json:"color"`
 	Imei          string    `json:"imei"`
 	VehicleName   string    `json:"vehicle_name"`
+	BusNumber     string    `json:"bus_number"`
+	PlateNumber   string    `json:"plate_number"`
 	Longitude     float64   `json:"longitude"`
 	Latitude      float64   `json:"latitude"`
 	Status        string    `json:"status"`
@@ -24,6 +26,8 @@ type Bus struct {
 	Imei         string `json:"imei"`
 	IsActive     bool   `json:"is_active"`
 	Color        string `json:"color"`
+	BusNumber    string `json:"bus_number"`
+	PlateNumber  string `json:"plate_number"`
 	CurrentHalte string `json:"current_halte"`
 	NextHalte    string `json:"next_halte"`
 	CreatedAt    int64  `json:"created_at"`

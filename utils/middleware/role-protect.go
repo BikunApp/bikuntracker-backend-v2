@@ -49,8 +49,9 @@ func (rpmf *roleProtectMiddlewareFactory) MakeUserRoleProtector(role string) Mid
 func (rpmf *roleProtectMiddlewareFactory) MakeAdminApiKeyProtector() Middleware {
 	return func(next http.HandlerFunc) http.HandlerFunc {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.Header.Get("API_KEY") != rpmf.config.AdminApiKey {
-				http.Error(w, "Invalid API Key", http.StatusBadRequest)
+			apiKey := r.Header.Get("API_KEY")
+			if apiKey == "" || apiKey != rpmf.config.AdminApiKey {
+				http.Error(w, "Invalid API Key", http.StatusUnauthorized)
 				return
 			}
 

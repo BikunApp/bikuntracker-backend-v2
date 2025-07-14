@@ -13,4 +13,10 @@ type BusLapHistory struct {
 	HalteVisitHistory string     `json:"halte_visit_history,omitempty"`
 	CreatedAt         time.Time  `json:"created_at"`
 	UpdatedAt         time.Time  `json:"updated_at"`
+	// Bus information
+	VehicleNo   string `json:"vehicle_no,omitempty"`
+	BusNumber   string `json:"bus_number,omitempty"`
+	PlateNumber string `json:"plate_number,omitempty"`
+	IsActive    bool   `json:"is_active,omitempty"`
+	Color       string `json:"color,omitempty"`
 }

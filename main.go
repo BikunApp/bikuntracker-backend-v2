@@ -65,7 +65,11 @@ func main() {
 	})
 
 	// Lap history routes
-	utils.HandleRoute("/bus/lap-history", utils.MethodHandler{http.MethodGet: busHandler.GetFilteredLapHistory}, nil)
+	utils.HandleRoute("/bus/lap-history", utils.MethodHandler{http.MethodGet: busHandler.GetFilteredLapHistory}, &utils.Options{
+		Middlewares: []middleware.Middleware{
+			adminApiKeyProtectorMiddleware,
+		},
+	})
 	utils.HandleRoute("/bus/:imei/lap-history", utils.MethodHandler{http.MethodGet: busHandler.GetLapHistory}, nil)
 	utils.HandleRoute("/bus/:imei/active-lap", utils.MethodHandler{http.MethodGet: busHandler.GetActiveLap}, nil)
 	// Debug route - remove in production
