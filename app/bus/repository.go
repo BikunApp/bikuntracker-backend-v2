@@ -25,7 +25,7 @@ func NewRepository(db *pgxpool.Pool) *repository {
 }
 
 func (r *repository) GetBuses(ctx context.Context) (res []models.Bus, err error) {
-	rows, err := r.db.Query(ctx, `SELECT id, vehicle_no, imei, is_active, color, current_halte, next_halte, created_at, updated_at FROM bus;`)
+	rows, err := r.db.Query(ctx, `SELECT id, vehicle_no, imei, is_active, color, bus_number, plate_number, current_halte, next_halte, created_at, updated_at FROM bus;`)
 	if err != nil {
 		err = fmt.Errorf("unable to execute SQL query to get buses: %w", err)
 		return
@@ -33,13 +33,15 @@ func (r *repository) GetBuses(ctx context.Context) (res []models.Bus, err error)
 	res = make([]models.Bus, 0)
 	for rows.Next() {
 		var bus models.Bus
-		var currentHalte, nextHalte sql.NullString
+		var currentHalte, nextHalte, busNumber, plateNumber sql.NullString
 		if err := rows.Scan(
 			&bus.Id,
 			&bus.VehicleNo,
 			&bus.Imei,
 			&bus.IsActive,
 			&bus.Color,
+			&busNumber,
+			&plateNumber,
 			&currentHalte,
 			&nextHalte,
 			&bus.CreatedAt,
@@ -47,6 +49,12 @@ func (r *repository) GetBuses(ctx context.Context) (res []models.Bus, err error)
 		); err != nil {
 			err = fmt.Errorf("unable to scan SQL result: %w", err)
 			return res, err
+		}
+		if busNumber.Valid {
+			bus.BusNumber = busNumber.String
+		}
+		if plateNumber.Valid {
+			bus.PlateNumber = plateNumber.String
 		}
 		if currentHalte.Valid {
 			bus.CurrentHalte = currentHalte.String
@@ -63,21 +71,25 @@ func (r *repository) GetBuses(ctx context.Context) (res []models.Bus, err error)
 func (r *repository) CreateBus(ctx context.Context, data dto.CreateBusRequestBody) (res *models.Bus, err error) {
 	row := r.db.QueryRow(
 		ctx,
-		`INSERT INTO bus (imei, vehicle_no, is_active, color) VALUES ($1, $2, $3, $4) RETURNING id, vehicle_no, imei, is_active, color, current_halte, next_halte, created_at, updated_at;`,
+		`INSERT INTO bus (imei, vehicle_no, is_active, color, bus_number, plate_number) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, vehicle_no, imei, is_active, color, bus_number, plate_number, current_halte, next_halte, created_at, updated_at;`,
 		data.Imei,
 		data.VehicleNo,
 		data.IsActive,
 		data.Color,
+		data.BusNumber,
+		data.PlateNumber,
 	)
 
 	var createdBus models.Bus
-	var currentHalte, nextHalte sql.NullString
+	var currentHalte, nextHalte, busNumber, plateNumber sql.NullString
 	if err = row.Scan(
 		&createdBus.Id,
 		&createdBus.VehicleNo,
 		&createdBus.Imei,
 		&createdBus.IsActive,
 		&createdBus.Color,
+		&busNumber,
+		&plateNumber,
 		&currentHalte,
 		&nextHalte,
 		&createdBus.CreatedAt,
@@ -85,6 +97,12 @@ func (r *repository) CreateBus(ctx context.Context, data dto.CreateBusRequestBod
 	); err != nil {
 		err = fmt.Errorf("unable to execute create bus SQL: %w", err)
 		return
+	}
+	if busNumber.Valid {
+		createdBus.BusNumber = busNumber.String
+	}
+	if plateNumber.Valid {
+		createdBus.PlateNumber = plateNumber.String
 	}
 	if currentHalte.Valid {
 		createdBus.CurrentHalte = currentHalte.String
@@ -103,17 +121,19 @@ func (r *repository) UpdateBus(ctx context.Context, whereData *models.WhereData,
 	}
 	row := r.db.QueryRow(
 		ctx,
-		sqlStr+" RETURNING id, vehicle_no, imei, is_active, color, current_halte, next_halte, created_at, updated_at",
+		sqlStr+" RETURNING id, vehicle_no, imei, is_active, color, bus_number, plate_number, current_halte, next_halte, created_at, updated_at",
 		params...,
 	)
 	var updatedBus models.Bus
-	var currentHalte, nextHalte sql.NullString
+	var currentHalte, nextHalte, busNumber, plateNumber sql.NullString
 	if err = row.Scan(
 		&updatedBus.Id,
 		&updatedBus.VehicleNo,
 		&updatedBus.Imei,
 		&updatedBus.IsActive,
 		&updatedBus.Color,
+		&busNumber,
+		&plateNumber,
 		&currentHalte,
 		&nextHalte,
 		&updatedBus.CreatedAt,
@@ -125,6 +145,12 @@ func (r *repository) UpdateBus(ctx context.Context, whereData *models.WhereData,
 		}
 		err = fmt.Errorf("unable to execute update bus SQL: %w", err)
 		return
+	}
+	if busNumber.Valid {
+		updatedBus.BusNumber = busNumber.String
+	}
+	if plateNumber.Valid {
+		updatedBus.PlateNumber = plateNumber.String
 	}
 	if currentHalte.Valid {
 		updatedBus.CurrentHalte = currentHalte.String
@@ -144,7 +170,7 @@ func (r *repository) DeleteBus(ctx context.Context, id string) (err error) {
 func (r *repository) InsertBuses(ctx context.Context, data []models.Bus) (err error) {
 	batch := &pgx.Batch{}
 	for _, bus := range data {
-		batch.Queue("INSERT INTO bus (vehicle_no, imei, is_active, color) VALUES ($1, $2, $3, $4)", bus.VehicleNo, bus.Imei, bus.IsActive, bus.Color)
+		batch.Queue("INSERT INTO bus (vehicle_no, imei, is_active, color, bus_number, plate_number) VALUES ($1, $2, $3, $4, $5, $6)", bus.VehicleNo, bus.Imei, bus.IsActive, bus.Color, bus.BusNumber, bus.PlateNumber)
 	}
 	err = r.db.SendBatch(ctx, batch).Close()
 	if err != nil {
@@ -297,17 +323,19 @@ func (r *repository) UpdateLapHistoryHalteVisits(ctx context.Context, id int, ha
 func (r *repository) GetActiveLapByImei(ctx context.Context, imei string) (*models.BusLapHistory, error) {
 	row := r.db.QueryRow(
 		ctx,
-		`SELECT id, bus_id, imei, lap_number, start_time, end_time, route_color, halte_visit_history, created_at, updated_at 
-		 FROM bus_lap_history 
-		 WHERE imei = $1 AND end_time IS NULL 
-		 ORDER BY start_time DESC 
+		`SELECT blh.id, blh.bus_id, blh.imei, blh.lap_number, blh.start_time, blh.end_time, blh.route_color, blh.halte_visit_history, blh.created_at, blh.updated_at,
+		        b.vehicle_no, b.bus_number, b.plate_number, b.is_active, b.color
+		 FROM bus_lap_history blh 
+		 JOIN bus b ON blh.bus_id = b.id
+		 WHERE blh.imei = $1 AND blh.end_time IS NULL 
+		 ORDER BY blh.start_time DESC 
 		 LIMIT 1`,
 		imei,
 	)
 
 	var lap models.BusLapHistory
 	var endTime sql.NullTime
-	var halteVisitHistory sql.NullString
+	var halteVisitHistory, busNumber, plateNumber sql.NullString
 	err := row.Scan(
 		&lap.ID,
 		&lap.BusID,
@@ -319,6 +347,11 @@ func (r *repository) GetActiveLapByImei(ctx context.Context, imei string) (*mode
 		&halteVisitHistory,
 		&lap.CreatedAt,
 		&lap.UpdatedAt,
+		&lap.VehicleNo,
+		&busNumber,
+		&plateNumber,
+		&lap.IsActive,
+		&lap.Color,
 	)
 	if err != nil {
 		if err == pgx.ErrNoRows {
@@ -335,16 +368,26 @@ func (r *repository) GetActiveLapByImei(ctx context.Context, imei string) (*mode
 		lap.HalteVisitHistory = halteVisitHistory.String
 	}
 
+	if busNumber.Valid {
+		lap.BusNumber = busNumber.String
+	}
+
+	if plateNumber.Valid {
+		lap.PlateNumber = plateNumber.String
+	}
+
 	return &lap, nil
 }
 
 func (r *repository) GetLapHistoryByImei(ctx context.Context, imei string) ([]models.BusLapHistory, error) {
 	rows, err := r.db.Query(
 		ctx,
-		`SELECT id, bus_id, imei, lap_number, start_time, end_time, route_color, halte_visit_history, created_at, updated_at 
-		 FROM bus_lap_history 
-		 WHERE imei = $1 
-		 ORDER BY start_time DESC`,
+		`SELECT blh.id, blh.bus_id, blh.imei, blh.lap_number, blh.start_time, blh.end_time, blh.route_color, blh.halte_visit_history, blh.created_at, blh.updated_at,
+		        b.vehicle_no, b.bus_number, b.plate_number, b.is_active, b.color
+		 FROM bus_lap_history blh 
+		 JOIN bus b ON blh.bus_id = b.id
+		 WHERE blh.imei = $1 
+		 ORDER BY blh.start_time DESC`,
 		imei,
 	)
 	if err != nil {
@@ -359,7 +402,7 @@ func (r *repository) GetLapHistoryByImei(ctx context.Context, imei string) ([]mo
 	for rows.Next() {
 		var lap models.BusLapHistory
 		var endTime sql.NullTime
-		var halteVisitHistory sql.NullString
+		var halteVisitHistory, busNumber, plateNumber sql.NullString
 		err := rows.Scan(
 			&lap.ID,
 			&lap.BusID,
@@ -371,6 +414,11 @@ func (r *repository) GetLapHistoryByImei(ctx context.Context, imei string) ([]mo
 			&halteVisitHistory,
 			&lap.CreatedAt,
 			&lap.UpdatedAt,
+			&lap.VehicleNo,
+			&busNumber,
+			&plateNumber,
+			&lap.IsActive,
+			&lap.Color,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("unable to scan lap history: %w", err)
@@ -384,6 +432,14 @@ func (r *repository) GetLapHistoryByImei(ctx context.Context, imei string) ([]mo
 			lap.HalteVisitHistory = halteVisitHistory.String
 		}
 
+		if busNumber.Valid {
+			lap.BusNumber = busNumber.String
+		}
+
+		if plateNumber.Valid {
+			lap.PlateNumber = plateNumber.String
+		}
+
 		laps = append(laps, lap)
 	}
 
@@ -391,7 +447,8 @@ func (r *repository) GetLapHistoryByImei(ctx context.Context, imei string) ([]mo
 }
 
 func (r *repository) GetFilteredLapHistory(ctx context.Context, filter dto.LapHistoryFilter) ([]models.BusLapHistory, error) {
-	query := `SELECT blh.id, blh.bus_id, blh.imei, blh.lap_number, blh.start_time, blh.end_time, blh.route_color, blh.halte_visit_history, blh.created_at, blh.updated_at 
+	query := `SELECT blh.id, blh.bus_id, blh.imei, blh.lap_number, blh.start_time, blh.end_time, blh.route_color, blh.halte_visit_history, blh.created_at, blh.updated_at,
+			         b.vehicle_no, b.bus_number, b.plate_number, b.is_active, b.color
 			  FROM bus_lap_history blh 
 			  JOIN bus b ON blh.bus_id = b.id 
 			  WHERE 1=1`
@@ -480,7 +537,7 @@ func (r *repository) GetFilteredLapHistory(ctx context.Context, filter dto.LapHi
 	for rows.Next() {
 		var lap models.BusLapHistory
 		var endTime sql.NullTime
-		var halteVisitHistory sql.NullString
+		var halteVisitHistory, busNumber, plateNumber sql.NullString
 		err := rows.Scan(
 			&lap.ID,
 			&lap.BusID,
@@ -492,6 +549,11 @@ func (r *repository) GetFilteredLapHistory(ctx context.Context, filter dto.LapHi
 			&halteVisitHistory,
 			&lap.CreatedAt,
 			&lap.UpdatedAt,
+			&lap.VehicleNo,
+			&busNumber,
+			&plateNumber,
+			&lap.IsActive,
+			&lap.Color,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("unable to scan filtered lap history: %w", err)
@@ -503,6 +565,14 @@ func (r *repository) GetFilteredLapHistory(ctx context.Context, filter dto.LapHi
 
 		if halteVisitHistory.Valid {
 			lap.HalteVisitHistory = halteVisitHistory.String
+		}
+
+		if busNumber.Valid {
+			lap.BusNumber = busNumber.String
+		}
+
+		if plateNumber.Valid {
+			lap.PlateNumber = plateNumber.String
 		}
 
 		laps = append(laps, lap)
