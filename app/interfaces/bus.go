@@ -14,6 +14,7 @@ type BusContainer interface {
 
 type BusService interface {
 	UpdateBusColorByImei(ctx context.Context, imei string, newColor string) (*models.Bus, error)
+	UpdateBusPlateNumberByImei(ctx context.Context, imei string, plateNumber string) (*models.Bus, error)
 	UpdateCurrentHalteByImei(ctx context.Context, imei string, newHalte string) (*models.Bus, error)
 	GetAllBuses(ctx context.Context) ([]models.Bus, error)
 	// Lap history methods

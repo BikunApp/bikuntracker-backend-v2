@@ -35,6 +35,9 @@ func (c *container) RunWebSocket() {
 			if activeLap != nil {
 				log.Printf("Found active lap for bus %s: lap %d", bus.Imei, activeLap.LapNumber)
 			}
+
+			// Initialize current plate number
+			c.currentPlates[bus.Imei] = bus.PlateNumber
 		}
 	} else {
 		log.Printf("Failed to get buses: %v", err)
@@ -94,6 +97,7 @@ func (c *container) parseWSData(data []byte) map[string]*models.BusCoordinate {
 		lat, _ := d["latitude"].(float64)
 		lng, _ := d["longitude"].(float64)
 		speed, _ := d["speed"].(float64)
+		hullNo, _ := d["hullNo"].(string)
 		currentHalte, dist := nearestHalte(lat, lng)
 		previousHalte := c.previousHalte[imei]
 		routeType := detectRouteColorFromPair(previousHalte, currentHalte)
@@ -139,6 +143,21 @@ func (c *container) parseWSData(data []byte) map[string]*models.BusCoordinate {
 			}
 		}
 		coordinates[imei] = bus
+
+		// Update plate number if hullNo is provided and different from current
+		if hullNo != "" {
+			currentPlate := c.currentPlates[imei]
+			if currentPlate != hullNo {
+				ctx := context.Background()
+				_, err := c.busService.UpdateBusPlateNumberByImei(ctx, imei, hullNo)
+				if err != nil {
+					log.Printf("Failed to update plate number for bus %s: %v", imei, err)
+				} else {
+					c.currentPlates[imei] = hullNo
+					log.Printf("Updated plate number for bus %s: %s", imei, hullNo)
+				}
+			}
+		}
 	}
 	buses, err := c.busService.GetAllBuses(context.Background())
 	if err == nil {
