@@ -48,6 +48,19 @@ func (s *service) UpdateBusColorByImei(ctx context.Context, imei string, newColo
 	)
 }
 
+func (s *service) UpdateBusPlateNumberByImei(ctx context.Context, imei string, plateNumber string) (*models.Bus, error) {
+	return s.repo.UpdateBus(
+		ctx,
+		&models.WhereData{
+			FieldName: "imei",
+			Value:     imei,
+		},
+		dto.UpdateBusRequestBody{
+			PlateNumber: &plateNumber,
+		},
+	)
+}
+
 func (s *service) UpdateCurrentHalteByImei(ctx context.Context, imei string, newHalte string) (*models.Bus, error) {
 	return s.repo.UpdateBus(
 		ctx,

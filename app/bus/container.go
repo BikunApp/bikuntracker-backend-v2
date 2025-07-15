@@ -24,6 +24,7 @@ type container struct {
 	storedBuses    map[string]*dqStore
 	previousHalte  map[string]string // imei -> previous halte name
 	activeLaps     map[string]bool   // imei -> whether bus has active lap
+	currentPlates  map[string]string // imei -> current plate number
 }
 
 func NewContainer(
@@ -41,6 +42,7 @@ func NewContainer(
 		storedBuses:    make(map[string]*dqStore),
 		previousHalte:  make(map[string]string),
 		activeLaps:     make(map[string]bool),
+		currentPlates:  make(map[string]string),
 	}
 }
 
