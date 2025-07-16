@@ -181,8 +181,8 @@ func (c *container) updateInterpolatedCoordinates() {
 			// Calculate time elapsed since last real update
 			elapsed := now.Sub(interpData.LastUpdate)
 
-			// Only interpolate if we have recent data (within last 30 seconds)
-			if elapsed > 30*time.Second {
+			// Only interpolate if we have recent data (within last 5 seconds)
+			if elapsed > 12*time.Second {
 				continue
 			}
 

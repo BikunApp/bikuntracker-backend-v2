@@ -154,7 +154,6 @@ func (r *Route) FindClosestRoutePoint(lat, lng float64) (closestPoint RoutePoint
 	bestPoint := RoutePoint{}
 	bestSegmentIndex := 0
 	bestDistanceAlong := 0.0
-	totalDist := 0.0
 
 	for i := 0; i < len(r.Points)-1; i++ {
 		start := r.Points[i]
@@ -169,13 +168,18 @@ func (r *Route) FindClosestRoutePoint(lat, lng float64) (closestPoint RoutePoint
 			bestPoint = closest
 			bestSegmentIndex = i
 			bestDistanceAlong = distAlong
-			totalDist = totalDist + distAlong
-		} else {
-			// Add full segment distance if we're past this segment
-			segmentDist := calculateDistance(start.Latitude, start.Longitude, end.Latitude, end.Longitude)
-			totalDist += segmentDist
 		}
 	}
+
+	// Calculate total distance: sum of all complete segments before bestSegmentIndex + bestDistanceAlong
+	totalDist := 0.0
+	for i := 0; i < bestSegmentIndex; i++ {
+		start := r.Points[i]
+		end := r.Points[i+1]
+		segmentDist := calculateDistance(start.Latitude, start.Longitude, end.Latitude, end.Longitude)
+		totalDist += segmentDist
+	}
+	totalDist += bestDistanceAlong
 
 	return bestPoint, bestSegmentIndex, bestDistanceAlong, totalDist
 }
