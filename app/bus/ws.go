@@ -71,6 +71,7 @@ func (c *container) connectAndConsumeWS(ctx context.Context, wsUrl string) {
 
 		c.updateBusColors(coordinates)
 		c.insertFetchedData(coordinates)
+		c.updateInterpolationData(coordinates) // Update interpolation data with new GPS coordinates
 		c.updateHalteVisits(ctx, coordinates)
 		err = c.possiblyChangeBusLane()
 		if err != nil {

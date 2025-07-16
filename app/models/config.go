@@ -17,6 +17,10 @@ type Config struct {
 	WsUpgradeWhitelist string `mapstructure:"WS_UPGRADE_WHITELIST"`
 	WsUrl              string `mapstructure:"WS_URL"`
 
+	// Coordinate interpolation settings
+	EnableInterpolation     bool `mapstructure:"ENABLE_INTERPOLATION"`      // Enable/disable coordinate interpolation
+	InterpolationIntervalMs int  `mapstructure:"INTERPOLATION_INTERVAL_MS"` // Interpolation interval in milliseconds
+
 	JwtExpiryInDays        int    `mapstructure:"JWT_EXPIRY_IN_DAYS"`
 	JwtRefreshExpiryInDays int    `mapstructure:"JWT_REFRESH_EXPIRY_IN_DAYS"`
 	JwtSecretKey           string `mapstructure:"JWT_SECRET_KEY"`
@@ -57,5 +61,16 @@ func (c *Config) SetDBString() {
 			c.DBName,
 			c.DBPort,
 		)
+	}
+}
+
+// SetInterpolationDefaults sets hardcoded default values for interpolation
+func (c *Config) SetInterpolationDefaults() {
+	// Hardcode interpolation to be enabled by default
+	c.EnableInterpolation = true
+
+	// Hardcode default interpolation interval to 1 second (1000ms)
+	if c.InterpolationIntervalMs <= 0 {
+		c.InterpolationIntervalMs = 1000
 	}
 }

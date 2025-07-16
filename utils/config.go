@@ -25,5 +25,6 @@ func SetupConfig() (config *models.Config, err error) {
 		return nil, err
 	}
 	config.SetDBString()
+	config.SetInterpolationDefaults() // Set hardcoded interpolation defaults
 	return config, nil
 }
