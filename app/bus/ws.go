@@ -165,6 +165,8 @@ func (c *container) parseWSData(data []byte) map[string]*models.BusCoordinate {
 			if bc, ok := coordinates[bus.Imei]; ok {
 				bc.Color = bus.Color
 				bc.Id = bus.Id
+				bc.BusNumber = bus.BusNumber
+				bc.PlateNumber = bus.PlateNumber
 			}
 		}
 	}
