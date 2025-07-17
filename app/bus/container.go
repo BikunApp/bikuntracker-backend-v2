@@ -17,15 +17,19 @@ const (
 
 // InterpolationData holds data needed for coordinate interpolation
 type InterpolationData struct {
-	LastCoordinate     models.BusCoordinate
+	LastRealCoordinate models.BusCoordinate  // Last actual GPS coordinate
+	CurrentCoordinate  models.BusCoordinate  // Current position (real or interpolated)
 	NextCoordinate     *models.BusCoordinate // predicted next position
-	Speed              float64               // km/h
+	Speed              float64               // km/h (capped for realistic movement)
 	Bearing            float64               // degrees
-	LastUpdate         time.Time
-	IntervalSec        int     // seconds between real updates
-	RouteColor         string  // current route color
-	SegmentIndex       int     // current route segment index
-	DistanceAlongRoute float64 // distance along current segment
+	LastRealUpdate     time.Time             // Last real GPS update time
+	LastInterpolation  time.Time             // Last interpolation update time
+	IntervalSec        int                   // seconds between real updates
+	RouteColor         string                // current route color
+	SegmentIndex       int                   // current route segment index
+	DistanceAlongRoute float64               // distance along current segment
+	TotalRouteDistance float64               // total distance along entire route
+	IsInterpolating    bool                  // whether currently showing interpolated position
 }
 
 type dqStore struct {
@@ -178,47 +182,122 @@ func (c *container) updateInterpolatedCoordinates() {
 
 	for imei, interpData := range c.interpolationData {
 		if coord, exists := c.busCoordinates[imei]; exists && interpData != nil {
-			// Calculate time elapsed since last real update
-			elapsed := now.Sub(interpData.LastUpdate)
+			// Calculate time elapsed since last real GPS update
+			elapsed := now.Sub(interpData.LastRealUpdate)
 
-			// Only interpolate if we have recent data (within last 5 seconds)
+			// Only interpolate if we have recent data (within last 12 seconds)
 			if elapsed > 12*time.Second {
 				continue
 			}
 
-			// Calculate how far we should have moved based on speed
-			elapsedSeconds := elapsed.Seconds()
-			speedMs := interpData.Speed * 1000 / 3600 // Convert km/h to m/s
-			distanceToMove := speedMs * elapsedSeconds
-
-			// Don't move too far (safety check)
-			if distanceToMove > 200 { // Max 200m interpolation
-				continue
+			// Calculate time since last interpolation step
+			interpolationElapsed := now.Sub(interpData.LastInterpolation)
+			if interpolationElapsed < 300*time.Millisecond {
+				continue // Update very frequently for ultra-smooth movement
 			}
 
-			// Use route-constrained interpolation if available
-			if c.routeMatcher != nil && interpData.RouteColor != "" {
+			// Use realistic bus speed (max 20 km/h in campus)
+			maxSpeed := 20.0 // km/h (balanced for campus buses)
+			effectiveSpeed := interpData.Speed
+			if effectiveSpeed > maxSpeed {
+				effectiveSpeed = maxSpeed
+			}
+			if effectiveSpeed < 0.0 {
+				effectiveSpeed = 0.0 // Minimum realistic speed (buses can stop at haltes)
+			}
+
+			// Calculate distance to move in this interpolation step (not total elapsed)
+			stepSeconds := interpolationElapsed.Seconds()
+			speedMs := effectiveSpeed * 1000 / 3600 // Convert km/h to m/s
+			distanceToMove := speedMs * stepSeconds
+
+			// Limit movement per step to very small increments for smooth movement
+			if distanceToMove > 3 { // Max 3m per interpolation step (very small steps)
+				distanceToMove = 3
+			}
+
+			// Don't move if speed is too low (bus is essentially stopped)
+			if effectiveSpeed < 1.0 { // If moving slower than 1 km/h, consider it stopped
+				distanceToMove = 0
+			}
+
+			// Calculate distance to real GPS coordinate to avoid overshooting
+			distanceToReal := calculateDistance(
+				interpData.CurrentCoordinate.Latitude,
+				interpData.CurrentCoordinate.Longitude,
+				interpData.LastRealCoordinate.Latitude,
+				interpData.LastRealCoordinate.Longitude,
+			)
+
+			// If we're very close to the real coordinate, use smaller steps
+			if distanceToReal < 10 && distanceToMove > distanceToReal/3 {
+				distanceToMove = distanceToReal / 3 // Move 1/3 of remaining distance
+			}
+
+			// Use route-constrained interpolation if available and route color is valid
+			if c.routeMatcher != nil && interpData.RouteColor != "" && interpData.RouteColor != "grey" {
 				newLat, newLon := c.interpolateAlongRoute(interpData, distanceToMove)
 				if newLat != 0 && newLon != 0 {
-					coord.Latitude = newLat
-					coord.Longitude = newLon
-					coord.GpsTime = now
-					continue
+					// Verify the new position is reasonable (not too far from route)
+					route := c.routeMatcher.FindBestRoute(newLat, newLon, interpData.RouteColor)
+					if route != nil {
+						closestPoint, _, _, _ := route.FindClosestRoutePoint(newLat, newLon)
+						distanceFromRoute := calculateDistance(newLat, newLon, closestPoint.Latitude, closestPoint.Longitude)
+						// Only use route interpolation if we stay close to the route (within 30m)
+						if distanceFromRoute < 30 {
+							coord.Latitude = newLat
+							coord.Longitude = newLon
+							coord.GpsTime = now
+							interpData.CurrentCoordinate.Latitude = newLat
+							interpData.CurrentCoordinate.Longitude = newLon
+							interpData.LastInterpolation = now
+							interpData.IsInterpolating = true
+							continue
+						}
+					}
 				}
 			}
 
-			// Fallback to simple linear interpolation
-			newLat, newLon := interpolateCoordinate(
-				interpData.LastCoordinate.Latitude,
-				interpData.LastCoordinate.Longitude,
-				interpData.Bearing,
-				distanceToMove,
-			)
+			// Fallback to simple linear interpolation if route-constrained fails
+			// This ensures buses keep moving even if route matching has issues
+			if distanceToMove > 0 {
+				// Calculate bearing towards the real GPS coordinate for more accurate movement
+				bearingToReal := calculateBearing(
+					interpData.CurrentCoordinate.Latitude,
+					interpData.CurrentCoordinate.Longitude,
+					interpData.LastRealCoordinate.Latitude,
+					interpData.LastRealCoordinate.Longitude,
+				)
 
-			// Update the coordinate with interpolated position
-			coord.Latitude = newLat
-			coord.Longitude = newLon
-			coord.GpsTime = now
+				// Use bearing towards real coordinate if we're close, otherwise use calculated bearing
+				bearingToUse := interpData.Bearing
+				distanceToReal := calculateDistance(
+					interpData.CurrentCoordinate.Latitude,
+					interpData.CurrentCoordinate.Longitude,
+					interpData.LastRealCoordinate.Latitude,
+					interpData.LastRealCoordinate.Longitude,
+				)
+
+				if distanceToReal < 50 { // Within 50m, move towards real coordinate
+					bearingToUse = bearingToReal
+				}
+
+				newLat, newLon := interpolateCoordinate(
+					interpData.CurrentCoordinate.Latitude,
+					interpData.CurrentCoordinate.Longitude,
+					bearingToUse,
+					distanceToMove,
+				)
+
+				// Update the coordinate with interpolated position
+				coord.Latitude = newLat
+				coord.Longitude = newLon
+				coord.GpsTime = now
+				interpData.CurrentCoordinate.Latitude = newLat
+				interpData.CurrentCoordinate.Longitude = newLon
+				interpData.LastInterpolation = now
+				interpData.IsInterpolating = true
+			}
 		}
 	}
 }
@@ -231,8 +310,8 @@ func (c *container) interpolateAlongRoute(interpData *InterpolationData, distanc
 
 	// Find the appropriate route based on current color
 	route := c.routeMatcher.FindBestRoute(
-		interpData.LastCoordinate.Latitude,
-		interpData.LastCoordinate.Longitude,
+		interpData.CurrentCoordinate.Latitude,
+		interpData.CurrentCoordinate.Longitude,
 		interpData.RouteColor,
 	)
 
@@ -240,12 +319,33 @@ func (c *container) interpolateAlongRoute(interpData *InterpolationData, distanc
 		return 0, 0
 	}
 
-	// Get the new position along the route
+	// First verify current position is actually on the route
+	_, currentSegmentIndex, currentDistanceAlong, _ := route.FindClosestRoutePoint(
+		interpData.CurrentCoordinate.Latitude,
+		interpData.CurrentCoordinate.Longitude,
+	)
+
+	// Use the more accurate current position on route
+	interpData.SegmentIndex = currentSegmentIndex
+	interpData.DistanceAlongRoute = currentDistanceAlong
+
+	// Get the new position along the route with very small movement
 	newPoint := route.GetPointAtDistance(
 		interpData.SegmentIndex,
 		interpData.DistanceAlongRoute,
 		distanceToMove,
 	)
+
+	// Verify new point is reasonable
+	if newPoint.Latitude == 0 || newPoint.Longitude == 0 {
+		return 0, 0
+	}
+
+	// Update route position for next interpolation
+	_, newSegmentIndex, newDistanceAlong, newTotalDistance := route.FindClosestRoutePoint(newPoint.Latitude, newPoint.Longitude)
+	interpData.SegmentIndex = newSegmentIndex
+	interpData.DistanceAlongRoute = newDistanceAlong
+	interpData.TotalRouteDistance = newTotalDistance
 
 	return newPoint.Latitude, newPoint.Longitude
 }
@@ -270,43 +370,58 @@ func (c *container) updateInterpolationData(coordinates map[string]*models.BusCo
 		interpData.RouteColor = newCoord.Color
 
 		// If we have previous coordinate, calculate speed and bearing
-		if interpData.LastUpdate.IsZero() {
+		if interpData.LastRealUpdate.IsZero() {
 			// First coordinate for this bus
-			interpData.LastCoordinate = *newCoord
-			interpData.LastUpdate = now
+			interpData.LastRealCoordinate = *newCoord
+			interpData.CurrentCoordinate = *newCoord
+			interpData.LastRealUpdate = now
+			interpData.LastInterpolation = now
 			interpData.Speed = float64(newCoord.Speed) // Use GPS speed if available
 			interpData.Bearing = 0                     // Will be calculated on next update
+			interpData.IsInterpolating = false
+
+			// Make sure the actual bus coordinate exists and is initialized
+			if coord, exists := c.busCoordinates[imei]; exists {
+				coord.Latitude = newCoord.Latitude
+				coord.Longitude = newCoord.Longitude
+				coord.GpsTime = newCoord.GpsTime
+			}
 
 			// Initialize route position if route matcher is available
 			if c.routeMatcher != nil && newCoord.Color != "" && newCoord.Color != "grey" {
 				route := c.routeMatcher.FindBestRoute(newCoord.Latitude, newCoord.Longitude, newCoord.Color)
 				if route != nil {
-					_, segmentIndex, distanceAlong, _ := route.FindClosestRoutePoint(newCoord.Latitude, newCoord.Longitude)
+					_, segmentIndex, distanceAlong, totalDistance := route.FindClosestRoutePoint(newCoord.Latitude, newCoord.Longitude)
 					interpData.SegmentIndex = segmentIndex
 					interpData.DistanceAlongRoute = distanceAlong
+					interpData.TotalRouteDistance = totalDistance
 				}
 			}
 		} else {
-			// Calculate distance and time between coordinates
+			// Calculate distance and time between real GPS coordinates
 			distance := calculateDistance(
-				interpData.LastCoordinate.Latitude,
-				interpData.LastCoordinate.Longitude,
+				interpData.LastRealCoordinate.Latitude,
+				interpData.LastRealCoordinate.Longitude,
 				newCoord.Latitude,
 				newCoord.Longitude,
 			)
 
-			timeDiff := now.Sub(interpData.LastUpdate).Seconds()
+			timeDiff := now.Sub(interpData.LastRealUpdate).Seconds()
 
-			// Calculate speed in km/h
+			// Calculate realistic speed in km/h
 			if timeDiff > 0 {
 				speedKmh := (distance / 1000) / (timeDiff / 3600)
+				// Cap speed to realistic bus speeds (max 50 km/h)
+				if speedKmh > 30 {
+					speedKmh = 30
+				}
 				interpData.Speed = speedKmh
 			}
 
 			// Calculate bearing for direction
 			interpData.Bearing = calculateBearing(
-				interpData.LastCoordinate.Latitude,
-				interpData.LastCoordinate.Longitude,
+				interpData.LastRealCoordinate.Latitude,
+				interpData.LastRealCoordinate.Longitude,
 				newCoord.Latitude,
 				newCoord.Longitude,
 			)
@@ -315,15 +430,39 @@ func (c *container) updateInterpolationData(coordinates map[string]*models.BusCo
 			if c.routeMatcher != nil && newCoord.Color != "" && newCoord.Color != "grey" {
 				route := c.routeMatcher.FindBestRoute(newCoord.Latitude, newCoord.Longitude, newCoord.Color)
 				if route != nil {
-					_, segmentIndex, distanceAlong, _ := route.FindClosestRoutePoint(newCoord.Latitude, newCoord.Longitude)
+					_, segmentIndex, distanceAlong, totalDistance := route.FindClosestRoutePoint(newCoord.Latitude, newCoord.Longitude)
 					interpData.SegmentIndex = segmentIndex
 					interpData.DistanceAlongRoute = distanceAlong
+					interpData.TotalRouteDistance = totalDistance
 				}
 			}
 
-			// Update with new coordinate
-			interpData.LastCoordinate = *newCoord
-			interpData.LastUpdate = now
+			// Smooth transition: if we were interpolating, don't jump directly to new GPS position
+			// Instead, update the targets and let interpolation catch up
+			currentDistance := calculateDistance(
+				interpData.CurrentCoordinate.Latitude,
+				interpData.CurrentCoordinate.Longitude,
+				newCoord.Latitude,
+				newCoord.Longitude,
+			)
+
+			// If the new GPS position is very close to our current interpolated position,
+			// or if we haven't been interpolating, update directly
+			if currentDistance < 30 || !interpData.IsInterpolating {
+				interpData.CurrentCoordinate = *newCoord
+				// Also update the actual bus coordinate that gets returned to frontend
+				if coord, exists := c.busCoordinates[imei]; exists {
+					coord.Latitude = newCoord.Latitude
+					coord.Longitude = newCoord.Longitude
+					coord.GpsTime = newCoord.GpsTime
+				}
+			}
+			// Otherwise, let interpolation gradually move towards the new real position
+
+			// Update with new real coordinate
+			interpData.LastRealCoordinate = *newCoord
+			interpData.LastRealUpdate = now
+			interpData.IsInterpolating = false // Reset interpolation flag
 		}
 	}
 

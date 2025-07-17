@@ -274,20 +274,33 @@ func closestPointOnSegment(lat, lng float64, start, end RoutePoint) (RoutePoint,
 func (rm *RouteMatcher) FindBestRoute(lat, lng float64, routeColor string) *Route {
 	// First try to match by color
 	if route, exists := rm.Routes[routeColor]; exists && routeColor != "grey" {
-		return route
+		// Verify the bus is actually close to this colored route
+		closestPoint, _, _, _ := route.FindClosestRoutePoint(lat, lng)
+		distanceFromRoute := calculateDistance(lat, lng, closestPoint.Latitude, closestPoint.Longitude)
+
+		// If bus is within 80m of the route, use this route (more lenient)
+		if distanceFromRoute < 80 {
+			return route
+		}
 	}
 
-	// If no color match or grey color, find closest route by distance
+	// If no color match or bus is too far from colored route, find closest route by distance
 	minDistance := math.Inf(1)
 	var bestRoute *Route
 
 	for _, route := range rm.Routes {
-		_, _, _, distance := route.FindClosestRoutePoint(lat, lng)
-		if distance < minDistance {
-			minDistance = distance
+		closestPoint, _, _, _ := route.FindClosestRoutePoint(lat, lng)
+		distanceFromRoute := calculateDistance(lat, lng, closestPoint.Latitude, closestPoint.Longitude)
+		if distanceFromRoute < minDistance {
+			minDistance = distanceFromRoute
 			bestRoute = route
 		}
 	}
 
-	return bestRoute
+	// Only return a route if the bus is within reasonable distance (150m - more lenient)
+	if minDistance < 150 {
+		return bestRoute
+	}
+
+	return nil
 }

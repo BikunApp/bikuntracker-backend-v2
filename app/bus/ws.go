@@ -69,6 +69,7 @@ func (c *container) connectAndConsumeWS(ctx context.Context, wsUrl string) {
 		}
 		coordinates := c.parseWSData(data)
 
+		c.busCoordinates = coordinates // Store raw GPS coordinates first
 		c.updateBusColors(coordinates)
 		c.insertFetchedData(coordinates)
 		c.updateInterpolationData(coordinates) // Update interpolation data with new GPS coordinates
@@ -78,7 +79,6 @@ func (c *container) connectAndConsumeWS(ctx context.Context, wsUrl string) {
 			log.Printf("Unable to change bus lane: %s", err.Error())
 		}
 		c.logCsvIfNeeded(coordinates)
-		c.busCoordinates = coordinates
 	}
 }
 
