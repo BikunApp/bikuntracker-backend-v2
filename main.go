@@ -31,7 +31,6 @@ func main() {
 
 	busRepo := bus.NewRepository(pool)
 	busService := bus.NewService(busRepo)
-	busHandler := bus.NewHandler(busRepo)
 
 	rmService := rm.NewService(config)
 
@@ -39,7 +38,10 @@ func main() {
 	damriService := damri.NewService(config, damriUtil)
 	busContainer := bus.NewContainer(config, rmService, damriService, busService)
 
-	go busContainer.RunCron()
+	busHandler := bus.NewHandler(busRepo, busService, busContainer)
+
+	// Initialize runtime caches; location updates now come via webhook instead of WS
+	busContainer.InitRuntimeState()
 
 	authUtil := auth.NewUtil(config)
 	authRepo := auth.NewRepository(pool)
@@ -62,6 +64,18 @@ func main() {
 			adminApiKeyProtectorMiddleware,
 		},
 	})
+
+	// Lap history routes
+	utils.HandleRoute("/bus/lap-history", utils.MethodHandler{http.MethodGet: busHandler.GetFilteredLapHistory}, &utils.Options{
+		Middlewares: []middleware.Middleware{
+			adminApiKeyProtectorMiddleware,
+		},
+	})
+	utils.HandleRoute("/bus/:imei/lap-history", utils.MethodHandler{http.MethodGet: busHandler.GetLapHistory}, nil)
+	utils.HandleRoute("/bus/:imei/active-lap", utils.MethodHandler{http.MethodGet: busHandler.GetActiveLap}, nil)
+	// Debug route - remove in production
+	utils.HandleRoute("/bus/test-lap-data", utils.MethodHandler{http.MethodPost: busHandler.CreateTestLapData}, nil)
+	utils.HandleRoute("/bus/check-table", utils.MethodHandler{http.MethodGet: busHandler.CheckLapHistoryTable}, nil)
 
 	utils.HandleRoute("/auth/sso/login", utils.MethodHandler{http.MethodPost: authHandler.SsoLogin}, nil)
 	utils.HandleRoute("/auth/refresh", utils.MethodHandler{http.MethodPost: authHandler.RefreshJwt}, nil)
@@ -88,7 +102,7 @@ func main() {
 			for {
 				coordinates := busContainer.GetBusCoordinates()
 
-				operationalStatus, err := damriService.GetOperationalStatus()
+				operationalStatus, err := damriService.GetOperationalStatus(busContainer.GetBusCoordinatesMap())
 				if err != nil {
 					reason = fmt.Sprintf("damriService.GetOperationalStatus(): %s", err.Error())
 					log.Println(reason)
@@ -105,11 +119,14 @@ func main() {
 				}
 
 				c.Write(r.Context(), websocket.MessageText, message)
-				time.Sleep(time.Second * 3)
+				time.Sleep(time.Second * 1)
 			}
 		}),
 		nil,
 	)
+
+	// Webhook to receive location updates
+	utils.HandleRoute("/wh", utils.MethodHandler{http.MethodPost: busHandler.WebhookUpdate}, nil)
 
 	fmt.Printf("Listening on port %s ...\n", config.Port)
 	log.Fatal(http.ListenAndServe(":"+config.Port, nil))
