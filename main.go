@@ -40,7 +40,8 @@ func main() {
 
 	busHandler := bus.NewHandler(busRepo, busService, busContainer)
 
-	go busContainer.RunWebSocket()
+	// Initialize runtime caches; location updates now come via webhook instead of WS
+	busContainer.InitRuntimeState()
 
 	authUtil := auth.NewUtil(config)
 	authRepo := auth.NewRepository(pool)
@@ -123,6 +124,9 @@ func main() {
 		}),
 		nil,
 	)
+
+	// Webhook to receive location updates
+	utils.HandleRoute("/wh", utils.MethodHandler{http.MethodPost: busHandler.WebhookUpdate}, nil)
 
 	fmt.Printf("Listening on port %s ...\n", config.Port)
 	log.Fatal(http.ListenAndServe(":"+config.Port, nil))

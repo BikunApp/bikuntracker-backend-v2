@@ -1,6 +1,9 @@
 package bus
 
 import (
+	"context"
+	"log"
+
 	"github.com/FreeJ1nG/bikuntracker-backend/app/interfaces"
 	"github.com/FreeJ1nG/bikuntracker-backend/app/models"
 	"github.com/gammazero/deque"
@@ -70,4 +73,39 @@ func (c *container) UpdateRuntimeBusColor(imei string, color string) error {
 func (c *container) RunCron() (err error) {
 	// Implementation would go here
 	return nil
+}
+
+// InitRuntimeState initializes runtime caches from database (colors, active laps, plates)
+func (c *container) InitRuntimeState() {
+	ctx := context.Background()
+	buses, err := c.busService.GetAllBuses(ctx)
+	if err != nil {
+		log.Printf("Failed to initialize runtime state: %v", err)
+		return
+	}
+	for _, b := range buses {
+		_, _ = c.busService.UpdateBusColorByImei(ctx, b.Imei, "grey")
+		activeLap, _ := c.busService.GetActiveLap(ctx, b.Imei)
+		c.activeLaps[b.Imei] = activeLap != nil
+		c.currentPlates[b.Imei] = b.PlateNumber
+	}
+}
+
+// ApplyExternalCoordinates allows feeding new coordinates from an external source (webhook)
+// without modifying business logic. It reuses the same pipeline as WS ingestion.
+func (c *container) ApplyExternalCoordinates(coords map[string]*models.BusCoordinate) {
+	// Update colors based on halte transitions
+	c.updateBusColors(coords)
+	// Store into rolling windows for lane detection
+	c.insertFetchedData(coords)
+	// Update halte visits and lap start/end
+	c.updateHalteVisits(context.Background(), coords)
+	// Possibly change bus lane via RM service
+	if err := c.possiblyChangeBusLane(); err != nil {
+		log.Printf("Unable to change bus lane: %s", err.Error())
+	}
+	// Optional logs
+	c.logCsvIfNeeded(coords)
+	// Replace runtime map
+	c.busCoordinates = coords
 }
