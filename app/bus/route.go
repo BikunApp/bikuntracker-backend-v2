@@ -1,10 +1,9 @@
 package bus
 
-var blueNormal = []string{"Asrama UI", "Menwa", "Stasiun UI", "Fakultas Psikologi", "FISIP", "Fakultas Ilmu Pengetahuan Budaya", "Fakultas Ekonomi dan Bisnis", "Fakultas Teknik", "Vokasi", "SOR", "FMIPA", "Fakultas Ilmu Keperawatan", "Fakultas Kesehatan Masyarakat", "RIK", "Balairung", "MUI/Perpus UI", "Fakultas Hukum", "Stasiun UI", "Menwa", "Asrama UI", "Parking"}
-var blueMorning = []string{"Asrama UI", "Menwa", "Stasiun UI", "Fakultas Psikologi", "FISIP", "Fakultas Ilmu Pengetahuan Budaya", "Fakultas Ekonomi dan Bisnis", "Fakultas Teknik", "Vokasi", "SOR", "FMIPA", "Fakultas Ilmu Keperawatan", "Fakultas Kesehatan Masyarakat", "RIK", "Balairung", "MUI/Perpus UI", "Fakultas Hukum", "Fakultas Psikologi", "FISIP", "Fakultas Ilmu Pengetahuan Budaya", "Fakultas Ekonomi dan Bisnis", "Fakultas Teknik", "Parking"}
-var redNormal = []string{"Asrama UI", "Menwa", "Stasiun UI", "Fakultas Hukum", "Balairung", "RIK", "Fakultas Kesehatan Masyarakat", "Fakultas Ilmu Keperawatan", "FMIPA", "SOR", "Vokasi", "Fakultas Teknik", "Fakultas Ekonomi dan Bisnis", "Fakultas Ilmu Pengetahuan Budaya", "FISIP", "Fakultas Psikologi", "Stasiun UI", "Menwa", "Asrama UI", "Parking"}
-var redMorning = []string{"Asrama UI", "Menwa", "Stasiun UI", "Fakultas Hukum", "Balairung", "RIK", "Fakultas Kesehatan Masyarakat", "Fakultas Ilmu Keperawatan", "FMIPA", "SOR", "Vokasi", "Fakultas Teknik", "Parking"}
-
+var blueNormal = []string{"Asrama UI", "Menwa", "Stasiun UI", "Fakultas Psikologi", "FISIP", "Fakultas Ilmu Pengetahuan Budaya", "Fakultas Ekonomi dan Bisnis", "Fakultas Teknik", "Vokasi", "SOR", "Fakultas Farmasi", "Balai Sidang", "Balairung", "Stasiun Pondok Cina", "MUI/Perpus UI", "Fakultas Hukum", "Stasiun UI", "Menwa", "Asrama UI", "Parking"}
+var blueMorning = []string{"Asrama UI", "Menwa", "Stasiun UI", "Fakultas Psikologi", "FISIP", "Fakultas Ilmu Pengetahuan Budaya", "Fakultas Ekonomi dan Bisnis", "Fakultas Teknik", "Vokasi", "SOR", "FIA", "Balairung", "Stasiun Pondok Cina", "MUI/Perpus UI", "Fakultas Hukum", "Fakultas Psikologi", "FISIP", "Fakultas Ilmu Pengetahuan Budaya", "Fakultas Ekonomi dan Bisnis", "Fakultas Teknik", "Parking"}
+var redNormal = []string{"Asrama UI", "Menwa", "Stasiun UI", "Fakultas Hukum", "Balairung", "RIK", "Fakultas Kesehatan Masyarakat", "RSUI", "Fakultas Ilmu Keperawatan", "FMIPA", "SOR", "Vokasi", "Fakultas Teknik", "Fakultas Ekonomi dan Bisnis", "Fakultas Ilmu Pengetahuan Budaya", "FISIP", "Fakultas Psikologi", "Stasiun UI", "Menwa", "Asrama UI", "Parking"}
+var redMorning = []string{"Asrama UI", "Menwa", "Stasiun UI", "Fakultas Hukum", "Balairung", "RIK", "Fakultas Kesehatan Masyarakat", "RSUI", "Fakultas Ilmu Keperawatan", "FMIPA", "SOR", "Vokasi", "Fakultas Teknik", "Parking"}
 var (
 	blueNormalSet  = make(map[[2]string]bool)
 	blueMorningSet = make(map[[2]string]bool)

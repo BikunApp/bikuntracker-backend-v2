@@ -22,10 +22,14 @@ var halteList = []Halte{
 	{"Fakultas Ilmu Keperawatan", -6.371008186217929, 106.8268945813179},
 	{"Fakultas Kesehatan Masyarakat", -6.371677262480034, 106.8293622136116},
 	{"RIK", -6.36987795182555, 106.8310546875},
-	{"Balairung", -6.368212251024606, 106.83178257197142},
+	{"Stasiun Pondok Cina", -6.368212251024606, 106.83178257197142},
 	{"MUI/Perpus UI", -6.3655942342627565, 106.83204710483551},
 	{"Fakultas Hukum", -6.364901492199248, 106.83221206068993},
 	{"Parking", -6.348922, 106.826476},
+	{"Balai Sidang", -6.369147, 106.828450},
+	{"Balairung", -6.36913, 106.82963},
+	{"Fakultas Farmasi", -6.36813, 106.82731},
+	{"RSUI", -6.37285, 106.82869},
 }
 
 func nearestHalte(lat, lng float64) (string, float64) {

@@ -102,8 +102,10 @@ func (s *service) StartLap(ctx context.Context, imei string, routeColor string) 
 	existingLaps, _ := s.repo.GetLapHistoryByImei(ctx, imei)
 	lapNumber := len(existingLaps) + 1
 
-	// Initialize halte visit history with starting point
-	initialHalteHistory := "Asrama UI"
+	// Initialize halte visit history with starting point and timestamp
+	jakarta, _ := time.LoadLocation("Asia/Jakarta")
+	startTimeJakarta := time.Now().In(jakarta)
+	initialHalteHistory := "Asrama UI [" + startTimeJakarta.Format("2006-01-02 15:04:05") + "]"
 
 	lapHistory := &models.BusLapHistory{
 		BusID:             busID,
@@ -203,18 +205,29 @@ func (s *service) AddHalteVisitToActiveLap(ctx context.Context, imei string, hal
 		return nil
 	}
 
-	// Build the new halte visit history
+	// Build the new halte visit history with timestamp
+	jakarta, _ := time.LoadLocation("Asia/Jakarta")
+	currentTimeJakarta := time.Now().In(jakarta)
+	halteWithTimestamp := halteName + " [" + currentTimeJakarta.Format("2006-01-02 15:04:05") + "]"
+
 	var newHalteHistory string
 	if activeLap.HalteVisitHistory == "" {
-		newHalteHistory = halteName
+		newHalteHistory = halteWithTimestamp
 	} else {
 		// Check if this halte is already the last one to avoid duplicates
 		existingHaltes := strings.Split(activeLap.HalteVisitHistory, " -> ")
-		if len(existingHaltes) > 0 && existingHaltes[len(existingHaltes)-1] == halteName {
-			// Same halte as last, don't add duplicate
-			return nil
+		if len(existingHaltes) > 0 {
+			// Extract just the halte name from the last entry (without timestamp)
+			lastHalte := existingHaltes[len(existingHaltes)-1]
+			if strings.Contains(lastHalte, " [") {
+				lastHalte = strings.Split(lastHalte, " [")[0]
+			}
+			if lastHalte == halteName {
+				// Same halte as last, don't add duplicate
+				return nil
+			}
 		}
-		newHalteHistory = activeLap.HalteVisitHistory + " -> " + halteName
+		newHalteHistory = activeLap.HalteVisitHistory + " -> " + halteWithTimestamp
 	}
 
 	// Update the halte visit history
