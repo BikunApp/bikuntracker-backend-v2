@@ -159,7 +159,7 @@ func main() {
 					if err != nil {
 						// Log error but don't break connection - send data without operational status
 						log.Printf("Warning: Failed to get operational status: %v", err)
-						operationalStatus = make(map[string]interface{}) // Empty status
+						operationalStatus = 0 // Empty status
 					}
 
 					// Marshal message
